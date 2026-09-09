@@ -89,7 +89,7 @@ class CalculatorViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching {
                 repo.deleteBusinessData(data)
-                repo.deleteCalculationResults(data.id)
+                repo.deleteAllCalculationResults(data.id)
                 loadSavedScenarios()
             }.onFailure {
                 _errorMsg.emit("Delete failed: ${it.localizedMessage}")

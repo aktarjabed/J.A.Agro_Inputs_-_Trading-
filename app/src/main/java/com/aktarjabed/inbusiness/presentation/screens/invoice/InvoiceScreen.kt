@@ -6,6 +6,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -28,6 +30,7 @@ fun InvoiceScreen(
 
     var customerName by remember { mutableStateOf("") }
     var totalAmount by remember { mutableStateOf("") }
+    var taxRate by remember { mutableStateOf("18.0") }
 
     // Check quota when screen loads
     LaunchedEffect(Unit) {
@@ -70,26 +73,23 @@ fun InvoiceScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp),
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Quota warning
-                        QuotaWarningBanner(
-                            remaining = state.remainingToday,
-                            onUpgrade = onNavigateToUpgrade
+                        // Warning banner if quota is low
+                        if (state.remainingToday <= 5) {
+                            QuotaWarningBanner(
+                                remaining = state.remainingToday,
+                                onUpgrade = onNavigateToUpgrade
+                            )
+                        }
+
+                        Text(
+                            text = "Invoice: \${state.invoiceNumber}",
+                            style = MaterialTheme.typography.titleMedium
                         )
 
-                        // Invoice number (read-only)
-                        OutlinedTextField(
-                            value = state.invoiceNumber,
-                            onValueChange = {},
-                            label = { Text("Invoice Number") },
-                            enabled = false,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        // Customer name
                         OutlinedTextField(
                             value = customerName,
                             onValueChange = { customerName = it },
@@ -97,25 +97,28 @@ fun InvoiceScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // Total amount
                         OutlinedTextField(
                             value = totalAmount,
                             onValueChange = { totalAmount = it },
                             label = { Text("Total Amount (₹)") },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Decimal
-                            ),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        Spacer(Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = taxRate,
+                            onValueChange = { taxRate = it },
+                            label = { Text("Tax Rate (%)") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                        // Create button
                         Button(
                             onClick = {
-                                val amount = totalAmount.toDoubleOrNull() ?: 0.0
-                                if (customerName.isNotBlank() && amount > 0) {
-                                    viewModel.createInvoice(customerName, amount)
+                                val amount = totalAmount.toDoubleOrNull()
+                                val tax = taxRate.toDoubleOrNull() ?: 0.0
+                                if (amount != null && customerName.isNotBlank()) {
+                                    viewModel.createInvoice(customerName, amount, tax)
                                 }
                             },
                             enabled = customerName.isNotBlank() && totalAmount.toDoubleOrNull() != null,
@@ -126,7 +129,7 @@ fun InvoiceScreen(
 
                         // Quota info
                         Text(
-                            text = "Remaining today: ${state.remainingToday} invoices",
+                            text = "Remaining today: \${state.remainingToday} invoices",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -146,18 +149,16 @@ fun InvoiceScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = androidx.compose.ui.Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
+                        Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                             Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.CheckCircle,
+                                imageVector = Icons.Default.CheckCircle,
                                 contentDescription = "Success",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(64.dp)
                             )
+                            Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = state.message,
+                                text = "Invoice Created Successfully!",
                                 style = MaterialTheme.typography.titleMedium
                             )
                         }
@@ -165,30 +166,13 @@ fun InvoiceScreen(
                 }
 
                 is InvoiceUiState.Error -> {
-                    Box(
+                    Column(
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = androidx.compose.ui.Alignment.Center
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                     ) {
-                        Column(
-                            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.Error,
-                                contentDescription = "Error",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(64.dp)
-                            )
-                            Text(
-                                text = state.message,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Button(onClick = { viewModel.checkQuotaAndPrepare() }) {
-                                Text("Retry")
-                            }
-                        }
+                        Icon(Icons.Default.Error, "Error")
+                        Text("Error: \${state.message}")
                     }
                 }
             }

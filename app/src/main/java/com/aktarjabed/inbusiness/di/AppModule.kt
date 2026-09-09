@@ -1,7 +1,10 @@
 package com.aktarjabed.inbusiness.di
 
 import android.content.Context
+import com.aktarjabed.inbusiness.data.dao.UserQuotaDao
+import com.aktarjabed.inbusiness.domain.context.BusinessContext
 import com.aktarjabed.inbusiness.domain.device.DeviceClassifier
+import com.aktarjabed.inbusiness.domain.quota.QuotaGate
 import com.aktarjabed.inbusiness.domain.security.EncryptionManager
 import com.aktarjabed.inbusiness.util.SystemClock
 import dagger.Module
@@ -31,6 +34,25 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSystemClock(): SystemClock = SystemClock()
+
+    @Provides
+    @Singleton
+    fun provideQuotaGate(
+        userQuotaDao: UserQuotaDao,
+        deviceClassifier: DeviceClassifier,
+        systemClock: SystemClock,
+        @ApplicationContext context: Context
+    ): QuotaGate {
+        return QuotaGate(userQuotaDao, deviceClassifier, systemClock, context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideBusinessContext(
+        @ApplicationContext context: Context
+    ): BusinessContext {
+        return BusinessContext(context)
+    }
 
     @Provides
     @IoDispatcher

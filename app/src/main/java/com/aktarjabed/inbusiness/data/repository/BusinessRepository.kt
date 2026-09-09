@@ -21,30 +21,34 @@ class BusinessRepository @Inject constructor(private val dao: BusinessDao) {
 
     suspend fun getBusinessDataById(id: String): BusinessData? =
         runCatching { dao.getBusinessDataById(id) }
-            .onFailure { Log.e(TAG, "getBusinessDataById: ${it.message}", it) }
+            .onFailure { Log.e(TAG, "getBusinessDataById: \${it.message}", it) }
             .getOrNull()
 
     suspend fun saveBusinessData(data: BusinessData) =
         runCatching { dao.insertBusinessData(data) }
-            .onFailure { Log.e(TAG, "saveBusinessData: ${it.message}", it) }
+            .onFailure { Log.e(TAG, "saveBusinessData: \${it.message}", it) }
 
     suspend fun deleteBusinessData(data: BusinessData) =
         runCatching { dao.deleteBusinessData(data) }
-            .onFailure { Log.e(TAG, "deleteBusinessData: ${it.message}", it) }
+            .onFailure { Log.e(TAG, "deleteBusinessData: \${it.message}", it) }
 
     fun getCalculationResults(businessDataId: String): Flow<List<CalculationResult>> =
         dao.getCalculationResults(businessDataId)
 
     suspend fun saveCalculationResult(result: CalculationResult) =
         runCatching { dao.insertCalculationResult(result) }
-            .onFailure { Log.e(TAG, "saveCalculationResult: ${it.message}", it) }
+            .onFailure { Log.e(TAG, "saveCalculationResult: \${it.message}", it) }
+
+    suspend fun deleteAllCalculationResults(businessId: String) =
+        runCatching { dao.deleteAllCalculationResults(businessId) }
+            .onFailure { Log.e(TAG, "deleteAllCalculationResults: \${it.message}", it) }
 
     /* ============== Business AI-safe calculator ============== */
     fun calculateFinancialMetrics(data: BusinessData): FinancialMetrics {
         return try {
             val revenue = data.unitPrice * data.quantity
             val cogs = data.rawMaterialsCost + data.supplierCosts
-            val grossProfit = (revenue - cogs).coerceAtLeast(0.0)
+            val grossProfit = revenue - cogs
 
             val operatingExpenses = listOf(
                 data.monthlyRent, data.transportCosts, data.labourCosts,
@@ -52,20 +56,21 @@ class BusinessRepository @Inject constructor(private val dao: BusinessDao) {
                 data.interestCosts
             ).sum()
 
-            val ebitda = (grossProfit - operatingExpenses + data.depreciation).coerceAtLeast(0.0)
+            val ebitda = grossProfit - (operatingExpenses - data.interestCosts)
 
-            val taxAmount = (revenue * data.incomeTaxSlab / 100.0) + data.tdsAmount
-            val netProfit = (ebitda - taxAmount + data.otherIncome).coerceAtLeast(0.0)
+            val ebt = ebitda - data.depreciation - data.interestCosts + data.otherIncome
+            val taxAmount = if (ebt > 0) (ebt * data.incomeTaxSlab / 100.0) + data.tdsAmount else data.tdsAmount
 
-            val gstPayable = (data.outputGst - data.inputGst).coerceAtLeast(0.0)
+            val netProfit = ebt - taxAmount
 
-            val contributionMargin = if (data.quantity > 0) {
-                data.unitPrice - (data.rawMaterialsCost + data.transportCosts) / data.quantity
-            } else 0.0
+            val gstPayable = data.outputGst - data.inputGst
 
-            val breakEvenPoint = if (contributionMargin > 0) {
-                (data.monthlyRent + data.labourCosts) / contributionMargin
-            } else 0.0
+            val variableCosts = data.rawMaterialsCost + data.transportCosts + data.supplierCosts
+            val variableCostPerUnit = if (data.quantity > 0) variableCosts / data.quantity else 0.0
+            val contributionMargin = data.unitPrice - variableCostPerUnit
+
+            val fixedCosts = data.monthlyRent + data.labourCosts + data.utilityCosts + data.insuranceCosts + data.marketingCosts + data.interestCosts + data.depreciation
+            val breakEvenPoint = if (contributionMargin > 0) fixedCosts / contributionMargin else 0.0
 
             val cashFlow = netProfit + data.depreciation
 
@@ -89,7 +94,9 @@ class BusinessRepository @Inject constructor(private val dao: BusinessDao) {
             val profitProjection = List(6) { month ->
                 val rev = revenue * (1 + month * 0.10)
                 val exp = operatingExpenses * (1 + month * 0.05)
-                (rev - exp - taxAmount).coerceAtLeast(0.0)
+                val projEbt = (rev - cogs) - (exp - data.interestCosts) - data.depreciation - data.interestCosts + data.otherIncome
+                val projTax = if (projEbt > 0) (projEbt * data.incomeTaxSlab / 100.0) + data.tdsAmount else data.tdsAmount
+                projEbt - projTax
             }
 
             FinancialMetrics(
@@ -110,7 +117,7 @@ class BusinessRepository @Inject constructor(private val dao: BusinessDao) {
                 profitProjection = profitProjection
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Calculation error: ${e.message}", e)
+            Log.e(TAG, "Calculation error: \${e.message}", e)
             FinancialMetrics() // safe fallback
         }
     }
