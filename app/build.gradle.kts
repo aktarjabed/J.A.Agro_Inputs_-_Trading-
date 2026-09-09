@@ -28,6 +28,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -35,6 +36,10 @@ android {
     buildFeatures.compose = true
     composeOptions.kotlinCompilerExtensionVersion = "1.5.11"
     packaging.resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -71,9 +76,19 @@ dependencies {
     // Splash
     implementation("androidx.core:core-splashscreen:1.0.1")
 
+    // Security & Crypto
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("net.zetetic:android-database-sqlcipher:4.5.3")
+    implementation("androidx.sqlite:sqlite-ktx:2.4.0")
+
+    // Desugaring
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito:mockito-core:4.11.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.05.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

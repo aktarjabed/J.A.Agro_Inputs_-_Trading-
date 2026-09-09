@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mockito.Mockito.mock
 import java.time.LocalDate
 
 class QuotaGateTest {
@@ -57,42 +58,17 @@ class QuotaGateTest {
     }
 
     class TestSystemClock : SystemClock() {
-        var forcedToday: LocalDate = LocalDate.now()
+        var forcedToday: LocalDate = LocalDate.of(2027, 1, 1) // Force after launch period
 
         override fun todayEpochDay(): Long = forcedToday.toEpochDay()
         override fun today(): LocalDate = forcedToday
         override fun monthStartEpochDay(): Long = forcedToday.withDayOfMonth(1).toEpochDay()
     }
 
-    // Since we avoid calling createFirstQuota by providing a pre-existing quota,
-    // we don't need real Context or DeviceClassifier.
-    // However, they are required by constructor.
-    // We can pass null as Context if we are careful, but Kotlin non-null type check might fail if we pass null to non-nullable.
-    // But since it's a test for JVM, maybe we can get away with mocking or just passing null via unchecked cast?
-    // Or we can create a dummy subclass of Context?
-    // Creating a dummy Context is hard because it has many abstract methods.
-    // Let's try to mock it with a simple inline class or anonymous object if possible, but Context is abstract class.
-    // Since we don't have Mockito, we have to be creative.
-    // Actually, createFirstQuota is the ONLY place using context.
-    // If we ensure `dao.getQuota` returns something, `createFirstQuota` is never called.
-    // So context is never touched.
-    // We can pass `null` by casting.
-
     @Test
     fun testQuotaConsumptionLogic() = runBlocking {
         val dao = FakeUserQuotaDao()
         val clock = TestSystemClock()
-        val context: Context? = null // We will cast this to non-null
-        val deviceClassifier: DeviceClassifier? = null // We will cast this to non-null
-
-        // This is hacky but since we don't have Mockito and don't want to use Robolectric
-        // and we know the code path won't touch these references if quota exists.
-        val quotaGate = QuotaGate(
-            dao,
-            deviceClassifier as DeviceClassifier, // Unsafe cast, will throw NPE if accessed
-            clock,
-            context as Context // Unsafe cast
-        )
 
         // Setup existing quota
         val userId = "test_user"
@@ -110,6 +86,9 @@ class QuotaGateTest {
             deviceTier = "LOW_END"
         )
         dao.insertOrReplace(initialQuota)
+
+        val mockContext = mock(Context::class.java)
+        val quotaGate = QuotaGate(dao, DeviceClassifier(), clock, mockContext)
 
         // 1. Simulate "Check Quota" (Entering screen) with consume=false
         val verdict1 = quotaGate.assertQuota(userId, consume = false)
@@ -141,7 +120,7 @@ class QuotaGateTest {
         assertTrue(verdict4 is QuotaVerdict.Allowed)
         assertEquals(2, dao.getQuota(userId)!!.dailyUsed)
 
-        // 5. Try to create 3rd (Should be blocked)
+        // 5. Try to create 3rd (Should be blocked since launch bonus is 0 and daily limit is 2)
         val verdict5 = quotaGate.assertQuota(userId, consume = true)
         assertTrue("Should be blocked on 3rd attempt", verdict5 is QuotaVerdict.DailyCap)
     }
