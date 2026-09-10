@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aktarjabed.inbusiness.data.dao.InvoiceDao
 import com.aktarjabed.inbusiness.data.entities.InvoiceItem
-import com.aktarjabed.inbusiness.data.repository.InvoiceRepository
+import com.aktarjabed.inbusiness.domain.usecase.CreateInvoiceUseCase
 import com.aktarjabed.inbusiness.domain.quota.QuotaGate
 import com.aktarjabed.inbusiness.domain.quota.QuotaVerdict
 import com.aktarjabed.inbusiness.domain.context.BusinessContext
@@ -21,7 +21,7 @@ import javax.inject.Inject
 class InvoiceViewModel @Inject constructor(
     private val quotaGate: QuotaGate,
     private val invoiceDao: InvoiceDao, // Used for peek/generate invoice number preview if needed
-    private val invoiceRepository: InvoiceRepository,
+    private val createInvoiceUseCase: CreateInvoiceUseCase,
     private val businessContext: BusinessContext
 ) : ViewModel() {
 
@@ -83,14 +83,16 @@ class InvoiceViewModel @Inject constructor(
             try {
                 val currentUserId = businessContext.currentUserId.first()
                 val currentBusinessId = businessContext.activeBusinessId.first()
+                val idempotencyKey = java.util.UUID.randomUUID().toString()
 
-                val finalVerdict = invoiceRepository.createInvoice(
+                val finalVerdict = createInvoiceUseCase(
                     userId = currentUserId,
                     businessId = currentBusinessId,
                     customerName = customerName,
                     totalAmount = totalAmount,
                     taxRate = taxRate,
-                    items = items
+                    items = items,
+                    idempotencyKey = idempotencyKey
                 )
 
                 if (finalVerdict !is QuotaVerdict.Allowed) {

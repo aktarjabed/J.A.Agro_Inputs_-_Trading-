@@ -20,11 +20,11 @@ class BusinessContext @Inject constructor(
     private val BUSINESS_ID_KEY = stringPreferencesKey("active_business_id")
 
     val currentUserId: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[USER_ID_KEY] ?: "default_user_id"
+        preferences[USER_ID_KEY] ?: throw IllegalStateException("No active user ID found in context")
     }
 
     val activeBusinessId: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[BUSINESS_ID_KEY] ?: "default_business_id"
+        preferences[BUSINESS_ID_KEY] ?: throw IllegalStateException("No active business ID found in context")
     }
 
     suspend fun setUserId(userId: String) {

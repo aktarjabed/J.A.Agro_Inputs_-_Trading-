@@ -23,7 +23,7 @@ import net.sqlcipher.database.SupportFactory
         UserQuotaEntity::class,
         InvoiceSequence::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -47,6 +47,56 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Ensure foreign keys are turned off during migration
+                db.execSQL("PRAGMA foreign_keys=OFF")
+
+                // Create the invoice sequence table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `invoice_sequences` (
+                        `businessId` TEXT NOT null,
+                        `currentNumber` INTEGER NOT null,
+                        PRIMARY KEY(`businessId`)
+                    )
+                """)
+
+                // Drop and recreate invoices table with composite unique index
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `invoices_new` (
+                        `id` TEXT NOT null,
+                        `businessId` TEXT NOT null,
+                        `invoiceNumber` TEXT NOT null,
+                        `customerId` TEXT NOT null,
+                        `customerName` TEXT NOT null,
+                        `customerGSTIN` TEXT,
+                        `totalAmount` REAL NOT null,
+                        `taxAmount` REAL NOT null,
+                        `createdAt` INTEGER NOT null,
+                        `updatedAt` INTEGER NOT null,
+                        `irn` TEXT,
+                        `ackNo` TEXT,
+                        `ackDate` INTEGER,
+                        `qrCodeData` TEXT,
+                        PRIMARY KEY(`id`)
+                    )
+                """)
+                db.execSQL("INSERT INTO invoices_new SELECT * FROM invoices")
+                db.execSQL("DROP TABLE invoices")
+                db.execSQL("ALTER TABLE invoices_new RENAME TO invoices")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_invoices_businessId_invoiceNumber` ON `invoices` (`businessId`, `invoiceNumber`)")
+
+                db.execSQL("PRAGMA foreign_keys=ON")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE invoices ADD COLUMN idempotencyKey TEXT")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_invoices_idempotencyKey` ON `invoices` (`idempotencyKey`)")
+            }
+        }
+
         private fun buildDatabase(context: Context, keyProvider: KeyProvider): AppDatabase {
             val passphrase = keyProvider.getDatabasePassphrase()
             val passphraseBytes = SQLiteDatabase.getBytes(passphrase.toCharArray())
@@ -58,8 +108,8 @@ abstract class AppDatabase : RoomDatabase() {
                 DATABASE_NAME
             )
                 .openHelperFactory(factory)
+                .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(DatabaseCallback())
-                .fallbackToDestructiveMigration()
                 .build()
         }
 

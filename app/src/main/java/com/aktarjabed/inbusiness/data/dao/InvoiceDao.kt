@@ -18,6 +18,9 @@ interface InvoiceDao {
     @Query("SELECT * FROM invoices WHERE id = :id AND businessId = :businessId LIMIT 1")
     suspend fun getInvoiceById(id: String, businessId: String): Invoice?
 
+    @Query("SELECT * FROM invoices WHERE idempotencyKey = :idempotencyKey LIMIT 1")
+    suspend fun getInvoiceByIdempotencyKey(idempotencyKey: String): Invoice?
+
     @Query("SELECT * FROM invoice_items WHERE invoiceId = :invoiceId")
     suspend fun getInvoiceItems(invoiceId: String): List<InvoiceItem>
 
