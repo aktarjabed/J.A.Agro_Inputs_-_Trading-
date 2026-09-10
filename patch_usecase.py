@@ -1,4 +1,5 @@
-package com.aktarjabed.inbusiness.domain.usecase
+with open('./app/src/main/java/com/aktarjabed/inbusiness/domain/usecase/CreateInvoiceUseCase.kt', 'w') as f:
+    f.write("""package com.aktarjabed.inbusiness.domain.usecase
 
 import com.aktarjabed.inbusiness.data.entities.InvoiceItem
 import com.aktarjabed.inbusiness.data.repository.InvoiceRepository
@@ -41,3 +42,4 @@ class CreateInvoiceUseCase @Inject constructor(
         )
     }
 }
+""")

@@ -1,4 +1,5 @@
-package com.aktarjabed.inbusiness.presentation.screens.invoice
+with open('./app/src/main/java/com/aktarjabed/inbusiness/presentation/screens/invoice/InvoiceViewModel.kt', 'w') as f:
+    f.write("""package com.aktarjabed.inbusiness.presentation.screens.invoice
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -259,3 +260,4 @@ data class InvoiceItemInput(
 ) {
     val isAdHoc: Boolean get() = productId == null
 }
+""")

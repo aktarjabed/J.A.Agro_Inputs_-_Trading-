@@ -1,4 +1,9 @@
-package com.aktarjabed.inbusiness.data.repository
+with open('./app/src/main/java/com/aktarjabed/inbusiness/data/repository/InvoiceRepository.kt', 'r') as f:
+    content = f.read()
+
+import re
+# The repo you showed above does not match what I wrote in step 3. It got reverted somehow. I'll write the proper version now.
+new_repo = """package com.aktarjabed.inbusiness.data.repository
 
 import android.util.Log
 import androidx.room.withTransaction
@@ -143,3 +148,6 @@ class InvoiceRepository @Inject constructor(
         }
     }
 }
+"""
+with open('./app/src/main/java/com/aktarjabed/inbusiness/data/repository/InvoiceRepository.kt', 'w') as f:
+    f.write(new_repo)
