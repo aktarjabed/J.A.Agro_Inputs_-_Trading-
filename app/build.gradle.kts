@@ -5,6 +5,12 @@ plugins {
     id("dagger.hilt.android.plugin")
 }
 
+kapt {
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+}
+
 android {
     namespace = "com.aktarjabed.inbusiness"
     compileSdk = 35
@@ -40,6 +46,12 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+
+    sourceSets {
+        getByName("androidTest").apply {
+            assets.srcDirs(files("$projectDir/schemas"))
+        }
+    }
 }
 
 dependencies {
@@ -60,6 +72,7 @@ dependencies {
     implementation("androidx.room:room-runtime:2.7.0-alpha05")
     implementation("androidx.room:room-ktx:2.7.0-alpha05")
     kapt("androidx.room:room-compiler:2.7.0-alpha05")
+    androidTestImplementation("androidx.room:room-testing:2.7.0-alpha05")
 
     // Hilt
     implementation("com.google.dagger:hilt-android:2.51")
@@ -88,6 +101,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.mockito:mockito-core:4.11.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("org.mockito:mockito-android:4.11.0")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.05.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
