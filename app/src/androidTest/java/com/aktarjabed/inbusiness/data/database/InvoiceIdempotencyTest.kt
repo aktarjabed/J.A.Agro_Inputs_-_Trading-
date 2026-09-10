@@ -11,6 +11,8 @@ import com.aktarjabed.inbusiness.data.entities.InvoiceSequence
 import com.aktarjabed.inbusiness.data.entities.UserQuotaEntity
 import com.aktarjabed.inbusiness.data.repository.InvoiceRepository
 import com.aktarjabed.inbusiness.domain.quota.QuotaGate
+import com.aktarjabed.inbusiness.domain.invoice.InvoiceCreationResult
+import com.aktarjabed.inbusiness.domain.invoice.SupplyType
 import com.aktarjabed.inbusiness.domain.quota.QuotaVerdict
 import com.aktarjabed.inbusiness.domain.device.DeviceClassifier
 import com.aktarjabed.inbusiness.util.SystemClock
@@ -58,7 +60,7 @@ class InvoiceIdempotencyTest {
 
         quotaGate = QuotaGate(userQuotaDao, mockDeviceClassifier, mockClock, context)
 
-        repository = InvoiceRepository(database, invoiceDao, quotaGate)
+        repository = InvoiceRepository(database, invoiceDao, database.productDao(), quotaGate)
 
         runBlocking {
             userQuotaDao.insertOrReplace(UserQuotaEntity(
@@ -89,12 +91,18 @@ class InvoiceIdempotencyTest {
             userId = userId,
             businessId = businessId,
             customerName = "First Customer",
+            customerGSTIN = "",
+            buyerAddress = "",
+            supplyType = SupplyType.INTRA_STATE,
             totalAmount = 100.0,
-            taxRate = 10.0,
+            taxAmount = 0.0,
+            totalCgst = 0.0,
+            totalSgst = 0.0,
+            totalIgst = 0.0,
             items = emptyList(),
             idempotencyKey = idempotencyKey
         )
-        assertTrue(firstResult is QuotaVerdict.Allowed)
+        assertTrue(firstResult is InvoiceCreationResult.Success)
 
         val initialInvoices = invoiceDao.getAllInvoicesOnce(businessId)
         assertEquals(1, initialInvoices.size)
@@ -104,12 +112,18 @@ class InvoiceIdempotencyTest {
             userId = userId,
             businessId = businessId,
             customerName = "Second Customer", // Different data, but same key
+            customerGSTIN = "",
+            buyerAddress = "",
+            supplyType = SupplyType.INTRA_STATE,
             totalAmount = 200.0,
-            taxRate = 5.0,
+            taxAmount = 0.0,
+            totalCgst = 0.0,
+            totalSgst = 0.0,
+            totalIgst = 0.0,
             items = emptyList(),
             idempotencyKey = idempotencyKey
         )
-        assertTrue(secondResult is QuotaVerdict.Allowed)
+        assertTrue(secondResult is InvoiceCreationResult.IdempotentReplay)
 
         val finalInvoices = invoiceDao.getAllInvoicesOnce(businessId)
         assertEquals(1, finalInvoices.size) // Still only 1 invoice

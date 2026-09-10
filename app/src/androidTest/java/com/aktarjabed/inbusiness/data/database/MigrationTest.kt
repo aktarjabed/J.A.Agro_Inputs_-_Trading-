@@ -48,5 +48,79 @@ class MigrationTest {
         val idempotencyKeyIndex = cursor.getColumnIndex("idempotencyKey")
         assert(cursor.isNull(idempotencyKeyIndex)) // Initialized to null for existing rows
         cursor.close()
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate7To8() {
+        var db = helper.createDatabase(TEST_DB, 7)
+
+        // Insert invoice so foreign key succeeds
+        db.execSQL("""
+            INSERT INTO invoices (id, businessId, invoiceNumber, customerId, customerName, totalAmount, taxAmount, createdAt, updatedAt)
+            VALUES ('inv-1', 'biz-1', 'INV-0001', 'cust-1', 'Test Customer', 100.0, 10.0, 1000000, 1000000)
+        """)
+
+        // Insert old invoice item format (v7 schema)
+        db.execSQL("""
+            INSERT INTO invoice_items (id, invoiceId, description, quantity, unitPrice, taxRate, amount, gstPercentage, taxAmount, totalAmount, productId)
+            VALUES ('item-1', 'inv-1', 'Test Item', 2.0, 50.0, 5.0, 100.0, 0.0, 5.0, 105.0, 123)
+        """)
+
+        db.close()
+
+        // Migrate to 8
+        db = helper.runMigrationsAndValidate(TEST_DB, 8, true, AppDatabase.MIGRATION_7_8)
+
+        val cursor = db.query("SELECT * FROM invoice_items WHERE id = 'item-1'")
+        assert(cursor.moveToFirst())
+
+        // Assert field renames and value mappings
+        assert(cursor.getDouble(cursor.getColumnIndexOrThrow("pricePerUnit")) == 50.0)
+        assert(cursor.getDouble(cursor.getColumnIndexOrThrow("subTotal")) == 100.0)
+        assert(cursor.getString(cursor.getColumnIndexOrThrow("unitType")) == "")
+        // GST percentage should be taken from taxRate since gstPercentage was 0.0
+        assert(cursor.getDouble(cursor.getColumnIndexOrThrow("gstPercentage")) == 5.0)
+
+        cursor.close()
     }
+
 }
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate7To8() {
+        var db = helper.createDatabase(TEST_DB, 7)
+
+        // Insert invoice so foreign key succeeds
+        db.execSQL("""
+            INSERT INTO invoices (id, businessId, invoiceNumber, customerId, customerName, totalAmount, taxAmount, createdAt, updatedAt)
+            VALUES ('inv-1', 'biz-1', 'INV-0001', 'cust-1', 'Test Customer', 100.0, 10.0, 1000000, 1000000)
+        """)
+
+        // Insert old invoice item format (v7 schema)
+        db.execSQL("""
+            INSERT INTO invoice_items (id, invoiceId, description, quantity, unitPrice, taxRate, amount, gstPercentage, taxAmount, totalAmount, productId)
+            VALUES ('item-1', 'inv-1', 'Test Item', 2.0, 50.0, 5.0, 100.0, 0.0, 5.0, 105.0, 123)
+        """)
+
+        db.close()
+
+        // Migrate to 8
+        db = helper.runMigrationsAndValidate(TEST_DB, 8, true, AppDatabase.MIGRATION_7_8)
+
+        val cursor = db.query("SELECT * FROM invoice_items WHERE id = 'item-1'")
+        assert(cursor.moveToFirst())
+
+        // Assert field renames and value mappings
+        assert(cursor.getDouble(cursor.getColumnIndexOrThrow("pricePerUnit")) == 50.0)
+        assert(cursor.getDouble(cursor.getColumnIndexOrThrow("subTotal")) == 100.0)
+        assert(cursor.getString(cursor.getColumnIndexOrThrow("unitType")) == "")
+        // GST percentage should be taken from taxRate since gstPercentage was 0.0
+        assert(cursor.getDouble(cursor.getColumnIndexOrThrow("gstPercentage")) == 5.0)
+
+        cursor.close()
+    }
+
+}
+
+// Wait, I shouldn't append blindly. Let's write a python script.
