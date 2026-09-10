@@ -21,9 +21,10 @@ import net.sqlcipher.database.SupportFactory
         InvoiceItem::class,
         CalculationResult::class,
         UserQuotaEntity::class,
-        InvoiceSequence::class
+        InvoiceSequence::class,
+        Product::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -32,6 +33,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessDao(): BusinessDao
     abstract fun invoiceDao(): InvoiceDao
     abstract fun userQuotaDao(): UserQuotaDao
+    abstract fun productDao(): ProductDao
 
     companion object {
         private const val DATABASE_NAME = "inbusiness_ultra.db"
@@ -97,6 +99,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `products` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT null,
+                        `name` TEXT NOT null,
+                        `brand` TEXT NOT null,
+                        `category` TEXT NOT null,
+                        `unitType` TEXT NOT null,
+                        `pricePerUnit` REAL NOT null,
+                        `availableStock` REAL NOT null,
+                        `batchNumber` TEXT,
+                        `isWholesaleOnly` INTEGER NOT null
+                    )
+                """)
+            }
+        }
+
         private fun buildDatabase(context: Context, keyProvider: KeyProvider): AppDatabase {
             val passphrase = keyProvider.getDatabasePassphrase()
             val passphraseBytes = SQLiteDatabase.getBytes(passphrase.toCharArray())
@@ -108,7 +128,7 @@ abstract class AppDatabase : RoomDatabase() {
                 DATABASE_NAME
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .addCallback(DatabaseCallback())
                 .build()
         }

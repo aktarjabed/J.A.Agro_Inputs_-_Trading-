@@ -5,6 +5,7 @@ import com.aktarjabed.inbusiness.data.database.AppDatabase
 import com.aktarjabed.inbusiness.data.dao.BusinessDao
 import com.aktarjabed.inbusiness.data.dao.InvoiceDao
 import com.aktarjabed.inbusiness.data.dao.UserQuotaDao
+import com.aktarjabed.inbusiness.data.dao.ProductDao
 import com.aktarjabed.inbusiness.security.KeyProvider
 import dagger.Module
 import dagger.Provides
@@ -47,4 +48,10 @@ object DatabaseModule {
     fun provideUserQuotaDao(
         database: AppDatabase
     ): UserQuotaDao = database.userQuotaDao()
+
+    @Provides
+    @Singleton
+    fun provideProductDao(
+        database: AppDatabase
+    ): ProductDao = database.productDao()
 }
