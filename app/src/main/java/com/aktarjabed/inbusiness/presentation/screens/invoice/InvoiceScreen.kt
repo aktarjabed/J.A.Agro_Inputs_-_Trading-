@@ -288,7 +288,7 @@ fun InvoiceItemCard(item: InvoiceItemInput, onRemove: () -> Unit) {
                         }
                     }
                 }
-                Text("Qty: ${item.quantity} x ₹${item.unitPrice}", style = MaterialTheme.typography.bodySmall)
+                Text("Qty: ${item.quantity} x ₹${item.pricePerUnit}", style = MaterialTheme.typography.bodySmall)
                 val taxStr = String.format(java.util.Locale.US, "%.2f", item.taxResult?.taxAmount ?: 0.0)
                 Text("GST: ${item.gstPercentage}% (₹$taxStr)", style = MaterialTheme.typography.bodySmall)
             }
@@ -315,10 +315,13 @@ fun AddItemDialog(
     var selectedProduct by remember { mutableStateOf<com.aktarjabed.inbusiness.data.entities.Product?>(null) }
     var description by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
+    var unitType by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var gstRate by remember { mutableStateOf("") }
 
     var expanded by remember { mutableStateOf(false) }
+
+    val isInputValid = description.isNotBlank() && quantity.toDoubleOrNull() != null && quantity.toDoubleOrNull()!! > 0 && price.toDoubleOrNull() != null && price.toDoubleOrNull()!! >= 0 && gstRate.toDoubleOrNull() != null && gstRate.toDoubleOrNull()!! >= 0
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -326,7 +329,7 @@ fun AddItemDialog(
         text = {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isAdHoc, onCheckedChange = { isAdHoc = it })
+                    Checkbox(checked = isAdHoc, onCheckedChange = { isAdHoc = it; if (it) selectedProduct = null })
                     Text("Ad-hoc Item (No stock deduction)")
                 }
 
@@ -355,6 +358,7 @@ fun AddItemDialog(
                                     onClick = {
                                         selectedProduct = product
                                         description = product.name
+                                        unitType = product.unitType
                                         price = product.pricePerUnit.toString()
                                         expanded = false
                                     }
@@ -362,44 +366,57 @@ fun AddItemDialog(
                             }
                         }
                     }
-                } else {
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text("Item Description") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
-                    value = quantity,
-                    onValueChange = { quantity = it },
-                    label = { Text("Quantity") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Item Description") },
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = description.isBlank()
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedTextField(
-                    value = price,
-                    onValueChange = { price = it },
-                    label = { Text("Unit Price (₹)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = quantity,
+                        onValueChange = { quantity = it },
+                        label = { Text("Quantity") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f),
+                        isError = quantity.toDoubleOrNull() == null || quantity.toDoubleOrNull()!! <= 0
+                    )
+                    OutlinedTextField(
+                        value = unitType,
+                        onValueChange = { unitType = it },
+                        label = { Text("Unit") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedTextField(
-                    value = gstRate,
-                    onValueChange = { gstRate = it },
-                    label = { Text("GST Rate (%)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = price,
+                        onValueChange = { price = it },
+                        label = { Text("Unit Price (₹)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f),
+                        isError = price.toDoubleOrNull() == null || price.toDoubleOrNull()!! < 0
+                    )
+                    OutlinedTextField(
+                        value = gstRate,
+                        onValueChange = { gstRate = it },
+                        label = { Text("GST Rate (%)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f),
+                        isError = gstRate.toDoubleOrNull() == null || gstRate.toDoubleOrNull()!! < 0
+                    )
+                }
             }
         },
         confirmButton = {
@@ -411,15 +428,17 @@ fun AddItemDialog(
                     if (q != null && p != null && g != null && description.isNotBlank()) {
                         onAdd(
                             InvoiceItemInput(
-                                description = description,
+                                description = description.trim(),
                                 quantity = q,
-                                unitPrice = p,
+                                pricePerUnit = p,
+                                unitType = unitType.trim(),
                                 gstPercentage = g,
                                 productId = if (isAdHoc) null else selectedProduct?.id
                             )
                         )
                     }
-                }
+                },
+                enabled = isInputValid
             ) {
                 Text("Add")
             }

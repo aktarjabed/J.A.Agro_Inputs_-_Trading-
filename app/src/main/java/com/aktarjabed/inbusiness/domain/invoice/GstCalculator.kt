@@ -34,20 +34,30 @@ object GstCalculator {
      * Calculates tax amounts for a single item based on its subtotal (qty * price) and GST percentage.
      * Rounding to 2 decimal places is commonly expected for currency.
      */
-    fun calculateItemTaxes(
+fun calculateItemTaxes(
         quantity: Double,
         unitPrice: Double,
         gstPercentage: Double,
         supplyType: SupplyType
     ): ItemTaxResult {
-        val subtotal = quantity * unitPrice
-        val taxAmount = (subtotal * gstPercentage) / 100.0
+        // subTotal = round(quantity * rate, 2)
+        val rawSubtotal = quantity * unitPrice
+        val subtotal = Math.round(rawSubtotal * 100.0) / 100.0
+
+        // taxAmount = round(unroundedLineSubtotal * gst% / 100, 2)
+        val rawTaxAmount = (rawSubtotal * gstPercentage) / 100.0
+        val taxAmount = Math.round(rawTaxAmount * 100.0) / 100.0
+
         val totalAmount = subtotal + taxAmount
 
         val (cgst, sgst, igst) = when (supplyType) {
             SupplyType.INTRA_STATE -> {
-                val halfTax = taxAmount / 2.0
-                Triple(halfTax, halfTax, 0.0)
+                // cgst = round(taxAmount / 2, 2)
+                val cgstRaw = taxAmount / 2.0
+                val cgstRounded = Math.round(cgstRaw * 100.0) / 100.0
+                // sgst = taxAmount - cgst
+                val sgstRounded = taxAmount - cgstRounded
+                Triple(cgstRounded, sgstRounded, 0.0)
             }
             SupplyType.INTER_STATE -> Triple(0.0, 0.0, taxAmount)
             SupplyType.UNKNOWN -> Triple(0.0, 0.0, 0.0) // Must be resolved before final calculation

@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -45,7 +45,7 @@ fun InvoicePreviewScreen(
                 title = { Text("Invoice Preview") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 }
             )
@@ -173,7 +173,7 @@ fun InvoiceDetails(invoice: Invoice, items: List<InvoiceItem>) {
                         Text("${index + 1}.", modifier = Modifier.width(24.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(item.description, fontWeight = FontWeight.Medium)
-                            Text("${item.quantity} x ₹${item.unitPrice} (+ ${item.gstPercentage}% GST)", style = MaterialTheme.typography.bodySmall)
+                            Text("${item.quantity} ${item.unitType} x ₹${item.pricePerUnit} (+ ${item.gstPercentage}% GST)", style = MaterialTheme.typography.bodySmall)
                         }
                         Text(String.format(Locale.US, "₹%.2f", item.totalAmount), fontWeight = FontWeight.Bold)
                     }

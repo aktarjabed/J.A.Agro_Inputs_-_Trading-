@@ -123,12 +123,7 @@ class InvoiceViewModel @Inject constructor(
         if (currentSupplyType == SupplyType.UNKNOWN) return
 
         val updatedItems = _invoiceItems.value.map { input ->
-            val taxResult = GstCalculator.calculateItemTaxes(
-                quantity = input.quantity,
-                unitPrice = input.unitPrice,
-                gstPercentage = input.gstPercentage,
-                supplyType = currentSupplyType
-            )
+            val taxResult = GstCalculator.calculateItemTaxes(quantity = input.quantity, unitPrice = input.pricePerUnit, gstPercentage = input.gstPercentage, supplyType = currentSupplyType)
             input.copy(taxResult = taxResult)
         }
         _invoiceItems.value = updatedItems
@@ -152,7 +147,6 @@ class InvoiceViewModel @Inject constructor(
                 val currentUserId = businessContext.currentUserId.first()
                 val currentBusinessId = businessContext.activeBusinessId.first()
                 val idempotencyKey = java.util.UUID.randomUUID().toString()
-
                 // Calculate totals
                 var totalAmount = 0.0
                 var taxAmount = 0.0
@@ -161,12 +155,7 @@ class InvoiceViewModel @Inject constructor(
                 var totalIgst = 0.0
 
                 val domainItems = _invoiceItems.value.map { input ->
-                    val taxResult = GstCalculator.calculateItemTaxes(
-                        quantity = input.quantity,
-                        unitPrice = input.unitPrice,
-                        gstPercentage = input.gstPercentage,
-                        supplyType = supplyType.value
-                    )
+                    val taxResult = GstCalculator.calculateItemTaxes(quantity = input.quantity, unitPrice = input.pricePerUnit, gstPercentage = input.gstPercentage, supplyType = supplyType.value)
 
                     totalAmount += taxResult.totalAmount
                     taxAmount += taxResult.taxAmount
@@ -177,15 +166,23 @@ class InvoiceViewModel @Inject constructor(
                     InvoiceItem(
                         description = input.description,
                         quantity = input.quantity,
-                        unitPrice = input.unitPrice,
-                        taxRate = input.gstPercentage,
-                        amount = taxResult.subtotal,
+                        pricePerUnit = input.pricePerUnit,
+                        unitType = input.unitType,
+
+                        subTotal = taxResult.subtotal,
                         gstPercentage = input.gstPercentage,
                         taxAmount = taxResult.taxAmount,
                         totalAmount = taxResult.totalAmount,
                         productId = input.productId
                     )
                 }
+
+                totalAmount = Math.round(totalAmount * 100.0) / 100.0
+                taxAmount = Math.round(taxAmount * 100.0) / 100.0
+                totalCgst = Math.round(totalCgst * 100.0) / 100.0
+                totalSgst = Math.round(totalSgst * 100.0) / 100.0
+                totalIgst = Math.round(totalIgst * 100.0) / 100.0
+
 
                 val result = createInvoiceUseCase(
                     userId = currentUserId,
@@ -252,8 +249,9 @@ class InvoiceViewModel @Inject constructor(
 data class InvoiceItemInput(
     val description: String,
     val quantity: Double,
-    val unitPrice: Double,
+    val pricePerUnit: Double,
     val gstPercentage: Double,
+    val unitType: String = "",
     val productId: Long? = null, // null for ad-hoc
     val taxResult: GstCalculator.ItemTaxResult? = null
 ) {

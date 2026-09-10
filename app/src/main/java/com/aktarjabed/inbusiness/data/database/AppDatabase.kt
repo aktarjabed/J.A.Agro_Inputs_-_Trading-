@@ -24,7 +24,7 @@ import net.sqlcipher.database.SupportFactory
         InvoiceSequence::class,
         Product::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -134,7 +134,61 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        private fun buildDatabase(context: Context, keyProvider: KeyProvider): AppDatabase {
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Ensure foreign keys are turned off during migration
+                db.execSQL("PRAGMA foreign_keys=OFF")
+
+                // Create new invoice_items table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `invoice_items_new` (
+                        `id` TEXT NOT NULL,
+                        `invoiceId` TEXT NOT NULL,
+                        `description` TEXT NOT NULL,
+                        `quantity` REAL NOT NULL,
+                        `pricePerUnit` REAL NOT NULL,
+                        `unitType` TEXT NOT NULL,
+                        `subTotal` REAL NOT NULL,
+                        `gstPercentage` REAL NOT NULL,
+                        `taxAmount` REAL NOT NULL,
+                        `totalAmount` REAL NOT NULL,
+                        `productId` INTEGER,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`invoiceId`) REFERENCES `invoices`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """)
+
+                // Copy data, mapping old fields to new ones. Note: taxRate goes to gstPercentage ONLY if gstPercentage is 0.0 (or just take max, or coalesce)
+                // Actually user said: Migrate the old taxRate value into gstPercentage when taxRate represents the historical GST percentage.
+                // If the old column gstPercentage had values we should preserve them. If taxRate has values we should use them if gstPercentage is 0.
+
+                db.execSQL("""
+                    INSERT INTO invoice_items_new (id, invoiceId, description, quantity, pricePerUnit, unitType, subTotal, gstPercentage, taxAmount, totalAmount, productId)
+                    SELECT
+                        id,
+                        invoiceId,
+                        description,
+                        quantity,
+                        unitPrice as pricePerUnit,
+                        '' as unitType,
+                        amount as subTotal,
+                        CASE WHEN gstPercentage = 0.0 AND taxRate > 0.0 THEN taxRate ELSE gstPercentage END as gstPercentage,
+                        taxAmount,
+                        totalAmount,
+                        productId
+                    FROM invoice_items
+                """)
+
+                db.execSQL("DROP TABLE invoice_items")
+                db.execSQL("ALTER TABLE invoice_items_new RENAME TO invoice_items")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_invoice_items_invoiceId` ON `invoice_items` (`invoiceId`)")
+
+                db.execSQL("PRAGMA foreign_keys=ON")
+            }
+        }
+
+    private fun buildDatabase(context: Context, keyProvider: KeyProvider): AppDatabase {
             val passphrase = keyProvider.getDatabasePassphrase()
             val passphraseBytes = SQLiteDatabase.getBytes(passphrase.toCharArray())
             val factory = SupportFactory(passphraseBytes)
@@ -145,7 +199,7 @@ abstract class AppDatabase : RoomDatabase() {
                 DATABASE_NAME
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .addCallback(DatabaseCallback())
                 .build()
         }

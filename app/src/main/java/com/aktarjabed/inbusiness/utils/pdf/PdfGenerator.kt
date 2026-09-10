@@ -203,7 +203,7 @@ class PdfGenerator(private val context: Context) {
 
         canvas.drawText(desc, MARGIN + 5f, y, textPaint)
         canvas.drawText(item.quantity.toString(), 250f, y, textPaint)
-        canvas.drawText(String.format(Locale.US, "%.2f", item.unitPrice), 300f, y, textPaint)
+        canvas.drawText(String.format(Locale.US, "%.2f", item.pricePerUnit), 300f, y, textPaint)
         canvas.drawText("${item.gstPercentage}%", 380f, y, textPaint)
         canvas.drawText(String.format(Locale.US, "%.2f", item.taxAmount), 440f, y, textPaint)
 
