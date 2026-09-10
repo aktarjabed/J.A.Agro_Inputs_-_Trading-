@@ -24,7 +24,7 @@ import net.sqlcipher.database.SupportFactory
         InvoiceSequence::class,
         Product::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -135,6 +135,27 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. Add payment fields to invoices table
+                db.execSQL("ALTER TABLE invoices ADD COLUMN amountPaid REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE invoices ADD COLUMN balanceDue REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE invoices ADD COLUMN paymentMethod TEXT NOT NULL DEFAULT 'NONE'")
+
+                // 2. Fix the sequence table name and column from migration 3->4
+                val cursor = db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='invoice_sequences'")
+                if (cursor.moveToFirst()) {
+                    // Only do the renaming dance if the bad table exists
+                    db.execSQL("CREATE TABLE IF NOT EXISTS `invoice_sequence_new` (`businessId` TEXT NOT NULL, `lastSequenceNumber` INTEGER NOT NULL, PRIMARY KEY(`businessId`))")
+                    db.execSQL("INSERT INTO invoice_sequence_new (businessId, lastSequenceNumber) SELECT businessId, currentNumber FROM invoice_sequences")
+                    db.execSQL("DROP TABLE invoice_sequences")
+                    db.execSQL("DROP TABLE IF EXISTS invoice_sequence")
+                    db.execSQL("ALTER TABLE invoice_sequence_new RENAME TO invoice_sequence")
+                }
+                cursor.close()
+            }
+        }
+
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // Ensure foreign keys are turned off during migration
@@ -199,7 +220,7 @@ abstract class AppDatabase : RoomDatabase() {
                 DATABASE_NAME
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .addCallback(DatabaseCallback())
                 .build()
         }

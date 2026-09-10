@@ -44,8 +44,14 @@ class InvoiceRepository @Inject constructor(
         totalSgst: Double,
         totalIgst: Double,
         items: List<InvoiceItem>,
-        idempotencyKey: String? = null
+        idempotencyKey: String? = null,
+        amountPaid: Double = 0.0,
+        paymentMethod: String = "NONE"
     ): InvoiceCreationResult = withContext(Dispatchers.IO) {
+        val balanceDue = totalAmount - amountPaid
+        if (amountPaid > totalAmount) {
+            return@withContext InvoiceCreationResult.InvalidRequest("Amount paid cannot exceed total amount")
+        }
 
         try {
             database.withTransaction {
@@ -86,10 +92,13 @@ class InvoiceRepository @Inject constructor(
                 }
 
                 // 4. Atomic Sequence logic
-                val rowsUpdated = invoiceDao.incrementSequence(businessId)
-                if (rowsUpdated == 0) {
-                    invoiceDao.insertSequence(InvoiceSequence(businessId, 1))
-                }
+                // Ensure the sequence row exists safely
+                invoiceDao.insertSequence(InvoiceSequence(businessId, 0))
+
+                // Atomically increment
+                invoiceDao.incrementSequence(businessId)
+
+                // Read the resulting value
                 val currentSeq = invoiceDao.getInvoiceSequence(businessId)
                 val nextSeqNumber = currentSeq?.lastSequenceNumber ?: 1
 
@@ -111,6 +120,9 @@ class InvoiceRepository @Inject constructor(
                     totalSgst = totalSgst,
                     totalIgst = totalIgst,
                     supplyType = supplyType.name,
+                    amountPaid = amountPaid,
+                    balanceDue = balanceDue,
+                    paymentMethod = paymentMethod,
                     createdAt = Instant.now(),
                     updatedAt = Instant.now()
                 )
@@ -129,10 +141,15 @@ class InvoiceRepository @Inject constructor(
             }
         } catch (e: android.database.sqlite.SQLiteConstraintException) {
              // 5. Concurrency fallback for Idempotency (Slow path - unique constraint collision)
+             // Transaction has rolled back by now
              Log.e(TAG, "Idempotency constraint conflict", e)
              if (idempotencyKey != null) {
                  val existing = invoiceDao.getInvoiceByIdempotencyKey(idempotencyKey)
                  if (existing != null) {
+                     // Verify payload consistency
+                     if (existing.totalAmount != totalAmount || existing.customerName != customerName) {
+                         return@withContext InvoiceCreationResult.InvalidRequest("Idempotency key reused for a different payload")
+                     }
                      return@withContext InvoiceCreationResult.IdempotentReplay(existing.id, existing.invoiceNumber)
                  }
              }

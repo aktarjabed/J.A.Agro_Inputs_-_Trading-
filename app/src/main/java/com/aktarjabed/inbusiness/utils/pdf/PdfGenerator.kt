@@ -78,6 +78,9 @@ class PdfGenerator(private val context: Context) {
                 canvas = page.canvas
                 yPosition = MARGIN
 
+                // Redraw seller and buyer header on new page
+                yPosition = drawHeader(canvas, business, invoice, yPosition)
+
                 // Redraw table header on new page
                 yPosition = drawTableHeader(canvas, yPosition)
             }
@@ -89,18 +92,30 @@ class PdfGenerator(private val context: Context) {
         canvas.drawLine(MARGIN, yPosition, PAGE_WIDTH - MARGIN, yPosition, boldPaint)
         yPosition += 20f
 
-        // Check if totals fit
-        if (yPosition > PAGE_HEIGHT - MARGIN - 150) {
+        // Check if totals fit (increased margin to accommodate new sections)
+        if (yPosition > PAGE_HEIGHT - MARGIN - 250) {
             pdfDocument.finishPage(page)
             pageNumber++
             pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, pageNumber).create()
             page = pdfDocument.startPage(pageInfo)
             canvas = page.canvas
             yPosition = MARGIN
+
+            // Redraw header for context on the new page
+            yPosition = drawHeader(canvas, business, invoice, yPosition)
         }
 
         // Totals
         yPosition = drawTotals(canvas, invoice, yPosition)
+
+        // Amount in words
+        yPosition = drawAmountInWords(canvas, invoice.totalAmount, yPosition)
+
+        // Payment Details
+        yPosition = drawPaymentDetails(canvas, invoice, yPosition)
+
+        // Terms
+        yPosition = drawTerms(canvas, yPosition)
 
         // Footer
         drawFooter(canvas, business)
@@ -193,16 +208,34 @@ class PdfGenerator(private val context: Context) {
     }
 
     private fun drawItemRow(canvas: Canvas, item: InvoiceItem, startY: Float): Float {
-        val y = startY
+        var y = startY
+        val colDescWidth = 190f
 
-        // Truncate description if too long to prevent overlap
-        var desc = item.description
-        if (textPaint.measureText(desc) > 190f) {
-            desc = desc.take(25) + "..."
+        // Text wrapping for description
+        val words = item.description.split(" ")
+        var currentLine = ""
+        val lines = mutableListOf<String>()
+
+        for (word in words) {
+            val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
+            if (textPaint.measureText(testLine) < colDescWidth) {
+                currentLine = testLine
+            } else {
+                lines.add(currentLine)
+                currentLine = word
+            }
+        }
+        if (currentLine.isNotEmpty()) {
+            lines.add(currentLine)
         }
 
-        canvas.drawText(desc, MARGIN + 5f, y, textPaint)
-        canvas.drawText(item.quantity.toString(), 250f, y, textPaint)
+        // Draw first line of description and the other columns
+        if (lines.isNotEmpty()) {
+            canvas.drawText(lines[0], MARGIN + 5f, y, textPaint)
+        }
+
+        val qtyText = if(item.unitType.isNotBlank()) "${item.quantity} ${item.unitType}" else item.quantity.toString()
+        canvas.drawText(qtyText, 250f, y, textPaint)
         canvas.drawText(String.format(Locale.US, "%.2f", item.pricePerUnit), 300f, y, textPaint)
         canvas.drawText("${item.gstPercentage}%", 380f, y, textPaint)
         canvas.drawText(String.format(Locale.US, "%.2f", item.taxAmount), 440f, y, textPaint)
@@ -210,7 +243,15 @@ class PdfGenerator(private val context: Context) {
         val totalStr = String.format(Locale.US, "%.2f", item.totalAmount)
         canvas.drawText(totalStr, PAGE_WIDTH - MARGIN - textPaint.measureText(totalStr) - 5f, y, textPaint)
 
-        return y + 20f
+        y += 20f
+
+        // Draw remaining lines of description
+        for (i in 1 until lines.size) {
+            canvas.drawText(lines[i], MARGIN + 5f, y, textPaint)
+            y += 20f
+        }
+
+        return y
     }
 
     private fun drawTotals(canvas: Canvas, invoice: Invoice, startY: Float): Float {
@@ -219,7 +260,7 @@ class PdfGenerator(private val context: Context) {
 
         val subtotal = invoice.totalAmount - invoice.taxAmount
 
-        val subtotalStr = "Subtotal: ${String.format(Locale.US, "%.2f", subtotal)}"
+        val subtotalStr = "Subtotal: Rs. ${String.format(Locale.US, "%.2f", subtotal)}"
         canvas.drawText(subtotalStr, rightMargin - textPaint.measureText(subtotalStr), y, textPaint)
         y += 20f
 
@@ -245,7 +286,71 @@ class PdfGenerator(private val context: Context) {
         val grandTotalStr = "Grand Total: Rs. ${String.format(Locale.US, "%.2f", invoice.totalAmount)}"
         canvas.drawText(grandTotalStr, rightMargin - boldPaint.measureText(grandTotalStr), y, boldPaint)
 
-        return y + 40f
+        return y + 30f
+    }
+
+    private fun drawAmountInWords(canvas: Canvas, amount: Double, startY: Float): Float {
+        var y = startY
+        val amountInWords = convertAmountToWords(amount)
+        val text = "Amount in Words: $amountInWords"
+        canvas.drawText(text, MARGIN, y, boldPaint)
+        return y + 30f
+    }
+
+    private fun drawPaymentDetails(canvas: Canvas, invoice: Invoice, startY: Float): Float {
+        var y = startY
+
+        canvas.drawText("Payment Details", MARGIN, y, boldPaint)
+        y += 20f
+
+        val amountPaidStr = "Amount Paid: Rs. ${String.format(Locale.US, "%.2f", invoice.amountPaid)}"
+        canvas.drawText(amountPaidStr, MARGIN, y, textPaint)
+        y += 20f
+
+        val balanceDueStr = "Balance Due: Rs. ${String.format(Locale.US, "%.2f", invoice.balanceDue)}"
+        canvas.drawText(balanceDueStr, MARGIN, y, textPaint)
+        y += 20f
+
+        val paymentMethodStr = "Payment Method: ${invoice.paymentMethod}"
+        canvas.drawText(paymentMethodStr, MARGIN, y, textPaint)
+
+        return y + 30f
+    }
+
+    private fun drawTerms(canvas: Canvas, startY: Float): Float {
+        var y = startY
+        canvas.drawText("Terms & Conditions:", MARGIN, y, boldPaint)
+        y += 20f
+        canvas.drawText("1. Goods once sold will not be taken back.", MARGIN, y, smallTextPaint)
+        y += 15f
+        canvas.drawText("2. Interest @ 18% p.a. will be charged if payment is delayed.", MARGIN, y, smallTextPaint)
+        return y + 20f
+    }
+
+    private fun convertAmountToWords(amount: Double): String {
+        val longAmount = amount.toLong()
+        if (longAmount == 0L) return "Zero Rupees Only"
+
+        val units = arrayOf("", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen")
+        val tens = arrayOf("", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety")
+
+        fun convert(n: Long): String {
+            if (n < 20) return units[n.toInt()]
+            if (n < 100) return tens[(n / 10).toInt()] + (if (n % 10 != 0L) " " + units[(n % 10).toInt()] else "")
+            if (n < 1000) return units[(n / 100).toInt()] + " Hundred" + (if (n % 100 != 0L) " " + convert(n % 100) else "")
+            if (n < 100000) return convert(n / 1000) + " Thousand" + (if (n % 1000 != 0L) " " + convert(n % 1000) else "")
+            if (n < 10000000) return convert(n / 100000) + " Lakh" + (if (n % 100000 != 0L) " " + convert(n % 100000) else "")
+            return convert(n / 10000000) + " Crore" + (if (n % 10000000 != 0L) " " + convert(n % 10000000) else "")
+        }
+
+        val rupeesPart = convert(longAmount)
+        val paise = Math.round((amount - longAmount) * 100)
+
+        return if (paise > 0) {
+            "Rupees $rupeesPart and ${convert(paise)} Paise Only"
+        } else {
+            "Rupees $rupeesPart Only"
+        }
     }
 
     private fun drawFooter(canvas: Canvas, business: BusinessData) {

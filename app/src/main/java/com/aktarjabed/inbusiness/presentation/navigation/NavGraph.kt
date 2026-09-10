@@ -11,6 +11,7 @@ import com.aktarjabed.inbusiness.presentation.screens.DashboardScreen
 import com.aktarjabed.inbusiness.presentation.screens.inventory.InventoryListScreen
 import com.aktarjabed.inbusiness.presentation.screens.inventory.ProductEntryScreen
 import com.aktarjabed.inbusiness.presentation.screens.invoice.InvoiceScreen
+import com.aktarjabed.inbusiness.presentation.screens.invoice_preview.InvoicePreviewScreen
 
 @Composable
 fun InBusinessNavGraph() {
@@ -29,7 +30,19 @@ fun InBusinessNavGraph() {
         composable("invoice") {
             InvoiceScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToUpgrade = { /* TODO: Navigate to upgrade screen */ }
+                onNavigateToUpgrade = { /* TODO: Navigate to upgrade screen */ },
+                onNavigateToPreview = { invoiceId ->
+                    navController.popBackStack()
+                    navController.navigate("invoice-preview/$invoiceId")
+                }
+            )
+        }
+        composable(
+            route = "invoice-preview/{invoiceId}",
+            arguments = listOf(navArgument("invoiceId") { type = NavType.StringType })
+        ) {
+            InvoicePreviewScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable("inventory") {

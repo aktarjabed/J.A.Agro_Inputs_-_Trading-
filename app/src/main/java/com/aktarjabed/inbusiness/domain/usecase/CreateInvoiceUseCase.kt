@@ -3,15 +3,16 @@ package com.aktarjabed.inbusiness.domain.usecase
 import com.aktarjabed.inbusiness.data.entities.InvoiceItem
 import com.aktarjabed.inbusiness.data.repository.InvoiceRepository
 import com.aktarjabed.inbusiness.domain.invoice.InvoiceCreationResult
+import com.aktarjabed.inbusiness.domain.context.BusinessContext
 import com.aktarjabed.inbusiness.domain.invoice.SupplyType
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
 class CreateInvoiceUseCase @Inject constructor(
-    private val invoiceRepository: InvoiceRepository
+    private val invoiceRepository: InvoiceRepository,
+    private val businessContext: BusinessContext
 ) {
     suspend operator fun invoke(
-        userId: String,
-        businessId: String,
         customerName: String,
         customerGSTIN: String?,
         buyerAddress: String,
@@ -22,11 +23,16 @@ class CreateInvoiceUseCase @Inject constructor(
         totalSgst: Double,
         totalIgst: Double,
         items: List<InvoiceItem>,
-        idempotencyKey: String? = null
+        idempotencyKey: String? = null,
+        amountPaid: Double = 0.0,
+        paymentMethod: String = "NONE"
     ): InvoiceCreationResult {
+        val currentUserId = businessContext.currentUserId.first()
+        val currentBusinessId = businessContext.activeBusinessId.first()
+
         return invoiceRepository.createInvoice(
-            userId = userId,
-            businessId = businessId,
+            userId = currentUserId,
+            businessId = currentBusinessId,
             customerName = customerName,
             customerGSTIN = customerGSTIN,
             buyerAddress = buyerAddress,
@@ -37,7 +43,9 @@ class CreateInvoiceUseCase @Inject constructor(
             totalSgst = totalSgst,
             totalIgst = totalIgst,
             items = items,
-            idempotencyKey = idempotencyKey
+            idempotencyKey = idempotencyKey,
+            amountPaid = amountPaid,
+            paymentMethod = paymentMethod
         )
     }
 }
