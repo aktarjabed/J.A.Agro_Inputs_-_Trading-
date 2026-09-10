@@ -171,8 +171,22 @@ fun InvoiceScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Default.Error, "Error")
-                        Text("Error: \${state.message}")
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Error",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Error: \${state.message}",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { viewModel.checkQuotaAndPrepare() }) {
+                            Text("Try again")
+                        }
                     }
                 }
             }
