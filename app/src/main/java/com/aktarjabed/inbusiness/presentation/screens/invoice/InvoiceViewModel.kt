@@ -14,6 +14,8 @@ import com.aktarjabed.inbusiness.domain.invoice.GstCalculator
 import com.aktarjabed.inbusiness.domain.invoice.InvoiceCreationResult
 import com.aktarjabed.inbusiness.domain.invoice.SupplyType
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.math.BigDecimal
+import java.math.RoundingMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +50,9 @@ class InvoiceViewModel @Inject constructor(
     private val _products = MutableStateFlow<List<Product>>(emptyList())
     val products = _products.asStateFlow()
 
+    val amountPaid = MutableStateFlow(0.0)
+    val paymentMethod = MutableStateFlow("NONE")
+
     init {
         // Load products for dropdown
         viewModelScope.launch {
@@ -63,14 +68,13 @@ class InvoiceViewModel @Inject constructor(
 
             try {
                 val currentUserId = businessContext.currentUserId.first()
-                val currentBusinessId = businessContext.activeBusinessId.first()
 
                 // Peek without consuming
                 val verdict = quotaGate.assertQuota(currentUserId, consume = false)
 
                 when (verdict) {
                     is QuotaVerdict.Allowed -> {
-                        val nextInvoiceNumber = "Preview Number"
+                        val nextInvoiceNumber = "Invoice number will be assigned when saved"
                         _uiState.value = InvoiceUiState.CreateAllowed(
                             remainingToday = verdict.remaining,
                             invoiceNumber = nextInvoiceNumber
@@ -144,24 +148,22 @@ class InvoiceViewModel @Inject constructor(
             _uiState.value = InvoiceUiState.Loading
 
             try {
-                val currentUserId = businessContext.currentUserId.first()
-                val currentBusinessId = businessContext.activeBusinessId.first()
                 val idempotencyKey = java.util.UUID.randomUUID().toString()
                 // Calculate totals
-                var totalAmount = 0.0
-                var taxAmount = 0.0
-                var totalCgst = 0.0
-                var totalSgst = 0.0
-                var totalIgst = 0.0
+                var totalAmount = BigDecimal.ZERO
+                var taxAmount = BigDecimal.ZERO
+                var totalCgst = BigDecimal.ZERO
+                var totalSgst = BigDecimal.ZERO
+                var totalIgst = BigDecimal.ZERO
 
                 val domainItems = _invoiceItems.value.map { input ->
                     val taxResult = GstCalculator.calculateItemTaxes(quantity = input.quantity, unitPrice = input.pricePerUnit, gstPercentage = input.gstPercentage, supplyType = supplyType.value)
 
-                    totalAmount += taxResult.totalAmount
-                    taxAmount += taxResult.taxAmount
-                    totalCgst += taxResult.cgstAmount
-                    totalSgst += taxResult.sgstAmount
-                    totalIgst += taxResult.igstAmount
+                    totalAmount = totalAmount.add(BigDecimal.valueOf(taxResult.totalAmount))
+                    taxAmount = taxAmount.add(BigDecimal.valueOf(taxResult.taxAmount))
+                    totalCgst = totalCgst.add(BigDecimal.valueOf(taxResult.cgstAmount))
+                    totalSgst = totalSgst.add(BigDecimal.valueOf(taxResult.sgstAmount))
+                    totalIgst = totalIgst.add(BigDecimal.valueOf(taxResult.igstAmount))
 
                     InvoiceItem(
                         description = input.description,
@@ -177,27 +179,27 @@ class InvoiceViewModel @Inject constructor(
                     )
                 }
 
-                totalAmount = Math.round(totalAmount * 100.0) / 100.0
-                taxAmount = Math.round(taxAmount * 100.0) / 100.0
-                totalCgst = Math.round(totalCgst * 100.0) / 100.0
-                totalSgst = Math.round(totalSgst * 100.0) / 100.0
-                totalIgst = Math.round(totalIgst * 100.0) / 100.0
+                val roundedTotalAmount = totalAmount.setScale(2, RoundingMode.HALF_UP).toDouble()
+                val roundedTaxAmount = taxAmount.setScale(2, RoundingMode.HALF_UP).toDouble()
+                val roundedTotalCgst = totalCgst.setScale(2, RoundingMode.HALF_UP).toDouble()
+                val roundedTotalSgst = totalSgst.setScale(2, RoundingMode.HALF_UP).toDouble()
+                val roundedTotalIgst = totalIgst.setScale(2, RoundingMode.HALF_UP).toDouble()
 
 
                 val result = createInvoiceUseCase(
-                    userId = currentUserId,
-                    businessId = currentBusinessId,
                     customerName = customerName.value,
                     customerGSTIN = customerGSTIN.value,
                     buyerAddress = buyerAddress.value,
                     supplyType = supplyType.value,
-                    totalAmount = totalAmount,
-                    taxAmount = taxAmount,
-                    totalCgst = totalCgst,
-                    totalSgst = totalSgst,
-                    totalIgst = totalIgst,
+                    totalAmount = roundedTotalAmount,
+                    taxAmount = roundedTaxAmount,
+                    totalCgst = roundedTotalCgst,
+                    totalSgst = roundedTotalSgst,
+                    totalIgst = roundedTotalIgst,
                     items = domainItems,
-                    idempotencyKey = idempotencyKey
+                    idempotencyKey = idempotencyKey,
+                    amountPaid = amountPaid.value,
+                    paymentMethod = paymentMethod.value
                 )
 
                 when(result) {

@@ -26,6 +26,7 @@ import kotlinx.coroutines.delay
 fun InvoiceScreen(
     onNavigateBack: () -> Unit,
     onNavigateToUpgrade: () -> Unit,
+    onNavigateToPreview: (String) -> Unit,
     viewModel: InvoiceViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -44,8 +45,9 @@ fun InvoiceScreen(
 
     LaunchedEffect(uiState) {
         if (uiState is InvoiceUiState.Success) {
+            val invoiceId = (uiState as InvoiceUiState.Success).invoiceId
             delay(1500)
-            onNavigateBack()
+            onNavigateToPreview(invoiceId)
         }
     }
 
