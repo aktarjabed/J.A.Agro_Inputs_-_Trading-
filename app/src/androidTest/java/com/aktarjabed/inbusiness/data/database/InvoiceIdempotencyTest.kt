@@ -129,4 +129,38 @@ class InvoiceIdempotencyTest {
         assertEquals(1, finalInvoices.size) // Still only 1 invoice
         assertEquals("First Customer", finalInvoices.first().customerName) // Retains original data
     }
+
+    @Test
+    fun testTransactionRollbackOnStockFailure() = runBlocking {
+        val prodDao = database.productDao()
+        val prod1 = com.aktarjabed.inbusiness.data.entities.Product(businessId = businessId, name = "P1", brand = "B1", category = "C1", unitType = "Kg", pricePerUnit = 100.0, availableStock = 10.0, batchNumber = "B1", isWholesaleOnly = false)
+        val prod2 = com.aktarjabed.inbusiness.data.entities.Product(businessId = businessId, name = "P2", brand = "B2", category = "C2", unitType = "Kg", pricePerUnit = 200.0, availableStock = 0.0, batchNumber = "B2", isWholesaleOnly = false)
+
+        val p1Id = prodDao.insertProduct(prod1)
+        val p2Id = prodDao.insertProduct(prod2)
+
+        val initialSeq = invoiceDao.getInvoiceSequence(businessId)?.lastSequenceNumber ?: 0
+
+        val items = listOf(
+            com.aktarjabed.inbusiness.data.entities.InvoiceItem(description = "P1", quantity = 5.0, pricePerUnit = 100.0, productId = p1Id),
+            com.aktarjabed.inbusiness.data.entities.InvoiceItem(description = "P2", quantity = 5.0, pricePerUnit = 200.0, productId = p2Id)
+        )
+
+        val result = repository.createInvoice(
+            userId = userId, businessId = businessId, customerName = "Test Cust", customerGSTIN = null, buyerAddress = "",
+            supplyType = SupplyType.INTRA_STATE, totalAmount = 1500.0, taxAmount = 0.0, totalCgst = 0.0, totalSgst = 0.0, totalIgst = 0.0,
+            items = items
+        )
+
+        assertTrue("Expected InsufficientStock result", result is InvoiceCreationResult.InsufficientStock)
+
+        val invoices = invoiceDao.getAllInvoicesOnce(businessId)
+        assertTrue("Invoice should not be inserted", invoices.isEmpty())
+
+        val postSeq = invoiceDao.getInvoiceSequence(businessId)?.lastSequenceNumber ?: 0
+        assertEquals("Sequence should rollback", initialSeq, postSeq)
+
+        val updatedP1 = prodDao.getProductById(p1Id, businessId)
+        assertEquals("Product 1 stock should rollback", 10.0, updatedP1!!.availableStock, 0.0)
+    }
 }

@@ -291,7 +291,7 @@ class PdfGenerator(private val context: Context) {
 
     private fun drawAmountInWords(canvas: Canvas, amount: Double, startY: Float): Float {
         var y = startY
-        val amountInWords = convertAmountToWords(amount)
+        val amountInWords = com.aktarjabed.inbusiness.utils.AmountInWordsConverter.convertAmountToWords(amount)
         val text = "Amount in Words: $amountInWords"
         canvas.drawText(text, MARGIN, y, boldPaint)
         return y + 30f
@@ -325,32 +325,6 @@ class PdfGenerator(private val context: Context) {
         y += 15f
         canvas.drawText("2. Interest @ 18% p.a. will be charged if payment is delayed.", MARGIN, y, smallTextPaint)
         return y + 20f
-    }
-
-    private fun convertAmountToWords(amount: Double): String {
-        val longAmount = amount.toLong()
-        if (longAmount == 0L) return "Zero Rupees Only"
-
-        val units = arrayOf("", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen")
-        val tens = arrayOf("", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety")
-
-        fun convert(n: Long): String {
-            if (n < 20) return units[n.toInt()]
-            if (n < 100) return tens[(n / 10).toInt()] + (if (n % 10 != 0L) " " + units[(n % 10).toInt()] else "")
-            if (n < 1000) return units[(n / 100).toInt()] + " Hundred" + (if (n % 100 != 0L) " " + convert(n % 100) else "")
-            if (n < 100000) return convert(n / 1000) + " Thousand" + (if (n % 1000 != 0L) " " + convert(n % 1000) else "")
-            if (n < 10000000) return convert(n / 100000) + " Lakh" + (if (n % 100000 != 0L) " " + convert(n % 100000) else "")
-            return convert(n / 10000000) + " Crore" + (if (n % 10000000 != 0L) " " + convert(n % 10000000) else "")
-        }
-
-        val rupeesPart = convert(longAmount)
-        val paise = Math.round((amount - longAmount) * 100)
-
-        return if (paise > 0) {
-            "Rupees $rupeesPart and ${convert(paise)} Paise Only"
-        } else {
-            "Rupees $rupeesPart Only"
-        }
     }
 
     private fun drawFooter(canvas: Canvas, business: BusinessData) {
