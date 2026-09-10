@@ -24,7 +24,7 @@ interface InvoiceDao {
     @Query("SELECT * FROM invoice_items WHERE invoiceId = :invoiceId")
     suspend fun getInvoiceItems(invoiceId: String): List<InvoiceItem>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertInvoice(invoice: Invoice)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -54,6 +54,12 @@ interface InvoiceDao {
 
     @Query("SELECT * FROM invoice_sequence WHERE businessId = :businessId LIMIT 1")
     suspend fun getInvoiceSequence(businessId: String): InvoiceSequence?
+
+    @Query("UPDATE invoice_sequence SET lastSequenceNumber = lastSequenceNumber + 1 WHERE businessId = :businessId")
+    suspend fun incrementSequence(businessId: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSequence(sequence: InvoiceSequence): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateSequence(sequence: InvoiceSequence)

@@ -24,5 +24,9 @@ data class InvoiceItem(
     val quantity: Double = 0.0,
     val unitPrice: Double = 0.0,
     val taxRate: Double = 0.0,
-    val amount: Double = 0.0
+    val amount: Double = 0.0,
+    val gstPercentage: Double = 0.0,
+    val taxAmount: Double = 0.0,
+    val totalAmount: Double = 0.0,
+    val productId: Long? = null
 )

@@ -1,4 +1,5 @@
-package com.aktarjabed.inbusiness.presentation.screens.invoice
+with open('./app/src/main/java/com/aktarjabed/inbusiness/presentation/screens/invoice/InvoiceScreen.kt', 'w') as f:
+    f.write("""package com.aktarjabed.inbusiness.presentation.screens.invoice
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -431,3 +432,4 @@ fun AddItemDialog(
         }
     )
 }
+""")

@@ -24,7 +24,7 @@ import net.sqlcipher.database.SupportFactory
         InvoiceSequence::class,
         Product::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -119,6 +119,21 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE invoices ADD COLUMN buyerAddress TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE invoices ADD COLUMN totalCgst REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE invoices ADD COLUMN totalSgst REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE invoices ADD COLUMN totalIgst REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE invoices ADD COLUMN supplyType TEXT NOT NULL DEFAULT ''")
+
+                db.execSQL("ALTER TABLE invoice_items ADD COLUMN gstPercentage REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE invoice_items ADD COLUMN taxAmount REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE invoice_items ADD COLUMN totalAmount REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE invoice_items ADD COLUMN productId INTEGER DEFAULT NULL")
+            }
+        }
+
         private fun buildDatabase(context: Context, keyProvider: KeyProvider): AppDatabase {
             val passphrase = keyProvider.getDatabasePassphrase()
             val passphraseBytes = SQLiteDatabase.getBytes(passphrase.toCharArray())
@@ -130,7 +145,7 @@ abstract class AppDatabase : RoomDatabase() {
                 DATABASE_NAME
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .addCallback(DatabaseCallback())
                 .build()
         }
