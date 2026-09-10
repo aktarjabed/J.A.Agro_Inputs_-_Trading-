@@ -16,7 +16,8 @@ import com.aktarjabed.inbusiness.presentation.viewmodel.CalculatorViewModel
 fun DashboardScreen(
     viewModel: CalculatorViewModel = hiltViewModel(),
     onNavigateToCalculator: () -> Unit,
-    onNavigateToInvoice: () -> Unit = {}
+    onNavigateToInvoice: () -> Unit = {},
+    onNavigateToInventory: () -> Unit = {}
 ) {
     val metrics by viewModel.financialMetrics.collectAsState()
     val scenarios by viewModel.savedScenarios.collectAsState()
@@ -113,6 +114,13 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Create Invoice")
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onNavigateToInventory,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Inventory")
             }
         }
     }

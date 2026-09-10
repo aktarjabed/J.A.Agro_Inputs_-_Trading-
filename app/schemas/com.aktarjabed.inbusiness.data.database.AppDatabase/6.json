@@ -1,0 +1,724 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 6,
+    "identityHash": "5f1040418ea07410476212279faaf5c2",
+    "entities": [
+      {
+        "tableName": "business_data",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `gstin` TEXT NOT NULL, `address` TEXT NOT NULL, `city` TEXT NOT NULL, `state` TEXT NOT NULL, `pincode` TEXT NOT NULL, `phoneNumber` TEXT NOT NULL, `email` TEXT NOT NULL, `scenarioName` TEXT NOT NULL, `unitPrice` REAL NOT NULL, `quantity` REAL NOT NULL, `rawMaterialsCost` REAL NOT NULL, `supplierCosts` REAL NOT NULL, `monthlyRent` REAL NOT NULL, `transportCosts` REAL NOT NULL, `labourCosts` REAL NOT NULL, `utilityCosts` REAL NOT NULL, `marketingCosts` REAL NOT NULL, `insuranceCosts` REAL NOT NULL, `interestCosts` REAL NOT NULL, `depreciation` REAL NOT NULL, `incomeTaxSlab` REAL NOT NULL, `tdsAmount` REAL NOT NULL, `otherIncome` REAL NOT NULL, `outputGst` REAL NOT NULL, `inputGst` REAL NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gstin",
+            "columnName": "gstin",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "city",
+            "columnName": "city",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "state",
+            "columnName": "state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pincode",
+            "columnName": "pincode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phoneNumber",
+            "columnName": "phoneNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "email",
+            "columnName": "email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scenarioName",
+            "columnName": "scenarioName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unitPrice",
+            "columnName": "unitPrice",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawMaterialsCost",
+            "columnName": "rawMaterialsCost",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "supplierCosts",
+            "columnName": "supplierCosts",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "monthlyRent",
+            "columnName": "monthlyRent",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transportCosts",
+            "columnName": "transportCosts",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "labourCosts",
+            "columnName": "labourCosts",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "utilityCosts",
+            "columnName": "utilityCosts",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "marketingCosts",
+            "columnName": "marketingCosts",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "insuranceCosts",
+            "columnName": "insuranceCosts",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "interestCosts",
+            "columnName": "interestCosts",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "depreciation",
+            "columnName": "depreciation",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incomeTaxSlab",
+            "columnName": "incomeTaxSlab",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tdsAmount",
+            "columnName": "tdsAmount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "otherIncome",
+            "columnName": "otherIncome",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outputGst",
+            "columnName": "outputGst",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "inputGst",
+            "columnName": "inputGst",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "invoices",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `businessId` TEXT NOT NULL, `idempotencyKey` TEXT, `invoiceNumber` TEXT NOT NULL, `customerId` TEXT NOT NULL, `customerName` TEXT NOT NULL, `customerGSTIN` TEXT, `totalAmount` REAL NOT NULL, `taxAmount` REAL NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `irn` TEXT, `ackNo` TEXT, `ackDate` INTEGER, `qrCodeData` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "businessId",
+            "columnName": "businessId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "idempotencyKey",
+            "columnName": "idempotencyKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "invoiceNumber",
+            "columnName": "invoiceNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "customerId",
+            "columnName": "customerId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "customerName",
+            "columnName": "customerName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "customerGSTIN",
+            "columnName": "customerGSTIN",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "totalAmount",
+            "columnName": "totalAmount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taxAmount",
+            "columnName": "taxAmount",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "irn",
+            "columnName": "irn",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ackNo",
+            "columnName": "ackNo",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "ackDate",
+            "columnName": "ackDate",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "qrCodeData",
+            "columnName": "qrCodeData",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_invoices_businessId_invoiceNumber",
+            "unique": true,
+            "columnNames": [
+              "businessId",
+              "invoiceNumber"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_invoices_businessId_invoiceNumber` ON `${TABLE_NAME}` (`businessId`, `invoiceNumber`)"
+          },
+          {
+            "name": "index_invoices_idempotencyKey",
+            "unique": true,
+            "columnNames": [
+              "idempotencyKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_invoices_idempotencyKey` ON `${TABLE_NAME}` (`idempotencyKey`)"
+          }
+        ]
+      },
+      {
+        "tableName": "invoice_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `invoiceId` TEXT NOT NULL, `description` TEXT NOT NULL, `quantity` REAL NOT NULL, `unitPrice` REAL NOT NULL, `taxRate` REAL NOT NULL, `amount` REAL NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`invoiceId`) REFERENCES `invoices`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "invoiceId",
+            "columnName": "invoiceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quantity",
+            "columnName": "quantity",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unitPrice",
+            "columnName": "unitPrice",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taxRate",
+            "columnName": "taxRate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amount",
+            "columnName": "amount",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_invoice_items_invoiceId",
+            "unique": false,
+            "columnNames": [
+              "invoiceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_invoice_items_invoiceId` ON `${TABLE_NAME}` (`invoiceId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "invoices",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "invoiceId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "calculation_results",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `businessDataId` TEXT NOT NULL, `grossProfit` REAL NOT NULL, `ebitda` REAL NOT NULL, `netProfit` REAL NOT NULL, `gstPayable` REAL NOT NULL, `breakEvenPoint` REAL NOT NULL, `cashFlow` REAL NOT NULL, `grossMargin` REAL NOT NULL, `netMargin` REAL NOT NULL, `operatingMargin` REAL NOT NULL, `roi` REAL NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`businessDataId`) REFERENCES `business_data`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "businessDataId",
+            "columnName": "businessDataId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grossProfit",
+            "columnName": "grossProfit",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ebitda",
+            "columnName": "ebitda",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "netProfit",
+            "columnName": "netProfit",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gstPayable",
+            "columnName": "gstPayable",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "breakEvenPoint",
+            "columnName": "breakEvenPoint",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cashFlow",
+            "columnName": "cashFlow",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grossMargin",
+            "columnName": "grossMargin",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "netMargin",
+            "columnName": "netMargin",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operatingMargin",
+            "columnName": "operatingMargin",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "roi",
+            "columnName": "roi",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_calculation_results_businessDataId",
+            "unique": false,
+            "columnNames": [
+              "businessDataId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_calculation_results_businessDataId` ON `${TABLE_NAME}` (`businessDataId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "business_data",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "businessDataId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "user_quota",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`userId` TEXT NOT NULL, `tier` TEXT NOT NULL, `dailyUsed` INTEGER NOT NULL, `lastResetEpochDay` INTEGER NOT NULL, `monthlyUsed` INTEGER NOT NULL, `lastMonthlyResetEpochDay` INTEGER NOT NULL, `watermark` INTEGER NOT NULL, `retentionDays` INTEGER NOT NULL, `freeExpiryEpochDay` INTEGER, `lastUpgradePrompt` INTEGER NOT NULL, `upgradePromptCount` INTEGER NOT NULL, `referredBy` TEXT, `bonusInvoices` INTEGER NOT NULL, `deviceTier` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`userId`))",
+        "fields": [
+          {
+            "fieldPath": "userId",
+            "columnName": "userId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tier",
+            "columnName": "tier",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dailyUsed",
+            "columnName": "dailyUsed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastResetEpochDay",
+            "columnName": "lastResetEpochDay",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "monthlyUsed",
+            "columnName": "monthlyUsed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastMonthlyResetEpochDay",
+            "columnName": "lastMonthlyResetEpochDay",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "watermark",
+            "columnName": "watermark",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retentionDays",
+            "columnName": "retentionDays",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "freeExpiryEpochDay",
+            "columnName": "freeExpiryEpochDay",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastUpgradePrompt",
+            "columnName": "lastUpgradePrompt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "upgradePromptCount",
+            "columnName": "upgradePromptCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "referredBy",
+            "columnName": "referredBy",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "bonusInvoices",
+            "columnName": "bonusInvoices",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceTier",
+            "columnName": "deviceTier",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "userId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_user_quota_userId",
+            "unique": true,
+            "columnNames": [
+              "userId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_user_quota_userId` ON `${TABLE_NAME}` (`userId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "invoice_sequence",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`businessId` TEXT NOT NULL, `lastSequenceNumber` INTEGER NOT NULL, PRIMARY KEY(`businessId`))",
+        "fields": [
+          {
+            "fieldPath": "businessId",
+            "columnName": "businessId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSequenceNumber",
+            "columnName": "lastSequenceNumber",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "businessId"
+          ]
+        }
+      },
+      {
+        "tableName": "products",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `businessId` TEXT NOT NULL, `name` TEXT NOT NULL COLLATE NOCASE, `brand` TEXT NOT NULL COLLATE NOCASE, `category` TEXT NOT NULL COLLATE NOCASE, `unitType` TEXT NOT NULL COLLATE NOCASE, `pricePerUnit` REAL NOT NULL, `availableStock` REAL NOT NULL, `batchNumber` TEXT NOT NULL, `isWholesaleOnly` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "businessId",
+            "columnName": "businessId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "brand",
+            "columnName": "brand",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unitType",
+            "columnName": "unitType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pricePerUnit",
+            "columnName": "pricePerUnit",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "availableStock",
+            "columnName": "availableStock",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batchNumber",
+            "columnName": "batchNumber",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isWholesaleOnly",
+            "columnName": "isWholesaleOnly",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_products_businessId_name_brand_category_unitType_batchNumber",
+            "unique": true,
+            "columnNames": [
+              "businessId",
+              "name",
+              "brand",
+              "category",
+              "unitType",
+              "batchNumber"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_products_businessId_name_brand_category_unitType_batchNumber` ON `${TABLE_NAME}` (`businessId`, `name`, `brand`, `category`, `unitType`, `batchNumber`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5f1040418ea07410476212279faaf5c2')"
+    ]
+  }
+}
