@@ -49,7 +49,6 @@ class PdfGenerator(private val context: Context) {
     }
 
     fun generateInvoicePdf(
-        business: BusinessData,
         invoice: Invoice,
         items: List<InvoiceItem>
     ): File? {
@@ -62,7 +61,7 @@ class PdfGenerator(private val context: Context) {
         var canvas = page.canvas
 
         // Header
-        yPosition = drawHeader(canvas, business, invoice, yPosition)
+        yPosition = drawHeader(canvas, invoice, yPosition)
 
         // Items Table Header
         yPosition = drawTableHeader(canvas, yPosition)
@@ -79,7 +78,7 @@ class PdfGenerator(private val context: Context) {
                 yPosition = MARGIN
 
                 // Redraw seller and buyer header on new page
-                yPosition = drawHeader(canvas, business, invoice, yPosition)
+                yPosition = drawHeader(canvas, invoice, yPosition)
 
                 // Redraw table header on new page
                 yPosition = drawTableHeader(canvas, yPosition)
@@ -102,7 +101,7 @@ class PdfGenerator(private val context: Context) {
             yPosition = MARGIN
 
             // Redraw header for context on the new page
-            yPosition = drawHeader(canvas, business, invoice, yPosition)
+            yPosition = drawHeader(canvas, invoice, yPosition)
         }
 
         // Totals
@@ -118,7 +117,7 @@ class PdfGenerator(private val context: Context) {
         yPosition = drawTerms(canvas, yPosition)
 
         // Footer
-        drawFooter(canvas, business, invoice)
+        drawFooter(canvas, invoice)
 
         pdfDocument.finishPage(page)
 
@@ -139,7 +138,7 @@ class PdfGenerator(private val context: Context) {
         }
     }
 
-    private fun drawHeader(canvas: Canvas, business: BusinessData, invoice: Invoice, startY: Float): Float {
+    private fun drawHeader(canvas: Canvas, invoice: Invoice, startY: Float): Float {
         var y = startY
 
         // Title
@@ -147,12 +146,14 @@ class PdfGenerator(private val context: Context) {
         y += 40f
 
         // Seller Info (Left) - use persisted snapshot from invoice
-        val sellerName = invoice.sellerName.ifBlank { business.name }
-        val sellerGstin = invoice.sellerGSTIN ?: business.gstin
-        val sellerAddress = invoice.sellerAddress.ifBlank { business.address }
+        val sellerName = invoice.sellerName
+        val sellerGstin = invoice.sellerGSTIN
+        val sellerAddress = invoice.sellerAddress
 
-        canvas.drawText(sellerName, MARGIN, y, boldPaint)
-        y += 20f
+        if (sellerName.isNotBlank()) {
+            canvas.drawText(sellerName, MARGIN, y, boldPaint)
+            y += 20f
+        }
         if (!sellerGstin.isNullOrBlank()) {
             canvas.drawText("GSTIN: ${sellerGstin}", MARGIN, y, textPaint)
             y += 20f
@@ -329,12 +330,14 @@ class PdfGenerator(private val context: Context) {
         return y + 20f
     }
 
-    private fun drawFooter(canvas: Canvas, business: BusinessData, invoice: Invoice) {
+    private fun drawFooter(canvas: Canvas, invoice: Invoice) {
         val y = PAGE_HEIGHT - 60f
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, textPaint)
 
-        val sellerName = invoice.sellerName.ifBlank { business.name }
-        canvas.drawText("For $sellerName", PAGE_WIDTH - MARGIN - boldPaint.measureText("For $sellerName"), y + 20f, boldPaint)
+        val sellerName = invoice.sellerName
+        if (sellerName.isNotBlank()) {
+            canvas.drawText("For $sellerName", PAGE_WIDTH - MARGIN - boldPaint.measureText("For $sellerName"), y + 20f, boldPaint)
+        }
         canvas.drawText("Authorized Signatory", PAGE_WIDTH - MARGIN - textPaint.measureText("Authorized Signatory"), y + 40f, smallTextPaint)
     }
 }

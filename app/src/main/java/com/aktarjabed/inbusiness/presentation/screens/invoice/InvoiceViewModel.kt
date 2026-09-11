@@ -57,6 +57,10 @@ class InvoiceViewModel @Inject constructor(
     val amountPaid = MutableStateFlow(0.0)
     val paymentMethod = MutableStateFlow("NONE")
 
+    val grandTotal = MutableStateFlow(0.0)
+
+    private var currentIdempotencyKey: String? = null
+
     init {
         // Load products for dropdown
         viewModelScope.launch {
@@ -157,6 +161,31 @@ class InvoiceViewModel @Inject constructor(
             input.copy(taxResult = taxResult)
         }
         _invoiceItems.value = updatedItems
+
+        try {
+            val rawItems = updatedItems.map { input ->
+                InvoiceItem(
+                    description = input.description,
+                    quantity = input.quantity,
+                    pricePerUnit = input.pricePerUnit,
+                    unitType = input.unitType,
+                    gstPercentage = input.gstPercentage,
+                    productId = input.productId
+                )
+            }
+            if (rawItems.isNotEmpty()) {
+                val calculationResult = calculateInvoiceTotalsUseCase(
+                    items = rawItems,
+                    supplyType = currentSupplyType,
+                    amountPaid = amountPaid.value
+                )
+                grandTotal.value = calculationResult.totalAmount
+            } else {
+                grandTotal.value = 0.0
+            }
+        } catch (e: Exception) {
+            grandTotal.value = 0.0
+        }
     }
 
     fun createInvoice() {
@@ -174,7 +203,7 @@ class InvoiceViewModel @Inject constructor(
             _uiState.value = InvoiceUiState.Loading
 
             try {
-                val idempotencyKey = java.util.UUID.randomUUID().toString()
+                val idempotencyKey = currentIdempotencyKey ?: java.util.UUID.randomUUID().toString().also { currentIdempotencyKey = it }
 
                 val rawItems = _invoiceItems.value.map { input ->
                     InvoiceItem(
@@ -187,29 +216,14 @@ class InvoiceViewModel @Inject constructor(
                     )
                 }
 
-                val calculationResult = calculateInvoiceTotalsUseCase(
-                    items = rawItems,
-                    supplyType = supplyType.value,
-                    amountPaid = amountPaid.value
-                )
-
                 val result = createInvoiceUseCase(
-                    sellerName = sellerName.value,
-                    sellerAddress = sellerAddress.value,
-                    sellerGSTIN = sellerGstin.value.takeIf { it.isNotBlank() },
                     customerName = customerName.value,
                     customerGSTIN = customerGSTIN.value,
                     buyerAddress = buyerAddress.value,
                     supplyType = supplyType.value,
-                    subtotal = calculationResult.subtotal,
-                    totalAmount = calculationResult.totalAmount,
-                    taxAmount = calculationResult.taxAmount,
-                    totalCgst = calculationResult.totalCgst,
-                    totalSgst = calculationResult.totalSgst,
-                    totalIgst = calculationResult.totalIgst,
-                    items = calculationResult.processedItems,
+                    items = rawItems,
                     idempotencyKey = idempotencyKey,
-                    amountPaid = calculationResult.amountPaid,
+                    amountPaid = amountPaid.value,
                     paymentMethod = paymentMethod.value
                 )
 
@@ -251,6 +265,10 @@ class InvoiceViewModel @Inject constructor(
 
     fun resetState() {
         _uiState.value = InvoiceUiState.Initial
+    }
+
+    fun resetIdempotencyKey() {
+        currentIdempotencyKey = null
     }
 
     companion object {

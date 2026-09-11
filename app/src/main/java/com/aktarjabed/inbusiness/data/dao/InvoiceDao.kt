@@ -18,8 +18,8 @@ interface InvoiceDao {
     @Query("SELECT * FROM invoices WHERE id = :id AND businessId = :businessId LIMIT 1")
     suspend fun getInvoiceById(id: String, businessId: String): Invoice?
 
-    @Query("SELECT * FROM invoices WHERE idempotencyKey = :idempotencyKey LIMIT 1")
-    suspend fun getInvoiceByIdempotencyKey(idempotencyKey: String): Invoice?
+    @Query("SELECT * FROM invoices WHERE idempotencyKey = :idempotencyKey AND businessId = :businessId LIMIT 1")
+    suspend fun getInvoiceByIdempotencyKey(idempotencyKey: String, businessId: String): Invoice?
 
     @Query("SELECT * FROM invoice_items WHERE invoiceId = :invoiceId AND invoiceId IN (SELECT id FROM invoices WHERE businessId = :businessId)")
     suspend fun getInvoiceItems(invoiceId: String, businessId: String): List<InvoiceItem>
@@ -30,26 +30,8 @@ interface InvoiceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItem(item: InvoiceItem)
 
-    @Update
-    suspend fun _updateInvoice(invoice: Invoice): Int
-
-    @Transaction
-    suspend fun updateInvoice(invoice: Invoice): Int {
-        val existing = getInvoiceById(invoice.id, invoice.businessId)
-        if (existing != null) {
-            return _updateInvoice(invoice)
-        }
-        return 0
-    }
-
-    @Transaction
-    suspend fun updateInvoiceWithItems(invoice: Invoice, items: List<InvoiceItem>) {
-        val updated = updateInvoice(invoice)
-        if (updated > 0) {
-            deleteItemsForInvoice(invoice.id, invoice.businessId)
-            items.forEach { insertItem(it) }
-        }
-    }
+    @Query("UPDATE invoices SET amountPaid = :amountPaid, balanceDue = :balanceDue, paymentMethod = :paymentMethod WHERE id = :invoiceId AND businessId = :businessId")
+    suspend fun updateInvoicePayment(invoiceId: String, businessId: String, amountPaid: Double, balanceDue: Double, paymentMethod: String): Int
 
     @Query("DELETE FROM invoice_items WHERE invoiceId = :invoiceId AND invoiceId IN (SELECT id FROM invoices WHERE businessId = :businessId)")
     suspend fun deleteItemsForInvoice(invoiceId: String, businessId: String): Int

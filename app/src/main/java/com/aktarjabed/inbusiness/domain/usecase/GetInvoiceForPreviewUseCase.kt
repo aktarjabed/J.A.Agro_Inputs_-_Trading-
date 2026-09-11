@@ -20,15 +20,11 @@ class GetInvoiceForPreviewUseCase @Inject constructor(
 
         val items = invoiceRepository.getInvoiceItems(invoiceId)
 
-        val activeBusinessId = businessContext.activeBusinessId.first()
-        val business = businessRepository.getBusinessDataById(activeBusinessId)
-            ?: return PreviewResult.Error("Business data not found")
-
-        return PreviewResult.Success(business, invoice, items)
+        return PreviewResult.Success(invoice, items)
     }
 }
 
 sealed class PreviewResult {
-    data class Success(val business: BusinessData, val invoice: Invoice, val items: List<InvoiceItem>) : PreviewResult()
+    data class Success(val invoice: Invoice, val items: List<InvoiceItem>) : PreviewResult()
     data class Error(val message: String) : PreviewResult()
 }

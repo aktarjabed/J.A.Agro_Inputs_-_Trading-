@@ -66,8 +66,7 @@ class ProductViewModel @Inject constructor(
     fun loadProductForEditing(productId: Long) {
         viewModelScope.launch {
             try {
-                val businessId = businessContext.activeBusinessId.first()
-                val product = productRepository.getProductById(productId, businessId)
+                val product = productRepository.getProductById(productId)
                 _editingProduct.value = product
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -94,9 +93,7 @@ class ProductViewModel @Inject constructor(
         viewModelScope.launch {
             _saveState.value = SaveProductState.Loading
             try {
-                val businessId = businessContext.activeBusinessId.first()
                 productRepository.saveProduct(
-                    businessId = businessId,
                     id = id,
                     name = name,
                     brand = brand,
@@ -118,8 +115,7 @@ class ProductViewModel @Inject constructor(
     fun deleteProduct(productId: Long) {
         viewModelScope.launch {
             try {
-                val businessId = businessContext.activeBusinessId.first()
-                productRepository.deleteProduct(productId, businessId)
+                productRepository.deleteProduct(productId)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
             }

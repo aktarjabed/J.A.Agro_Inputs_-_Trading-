@@ -32,14 +32,18 @@ class QuotaGateTest {
             quotas[quota.userId] = quota
         }
 
-        override suspend fun incrementUsage(userId: String, timestamp: Long) {
+        override suspend fun incrementUsage(userId: String, dailyCap: Int, timestamp: Long): Int {
             val q = quotas[userId]
             if (q != null) {
-                quotas[userId] = q.copy(
-                    dailyUsed = q.dailyUsed + 1,
-                    monthlyUsed = q.monthlyUsed + 1
-                )
+                if (q.dailyUsed < dailyCap) {
+                    quotas[userId] = q.copy(
+                        dailyUsed = q.dailyUsed + 1,
+                        monthlyUsed = q.monthlyUsed + 1
+                    )
+                    return 1
+                }
             }
+            return 0
         }
 
         override suspend fun resetDaily(userId: String, today: Long, timestamp: Long) {

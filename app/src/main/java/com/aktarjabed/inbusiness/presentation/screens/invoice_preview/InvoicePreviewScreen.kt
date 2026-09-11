@@ -64,7 +64,7 @@ fun InvoicePreviewScreen(
                                 onClick = {
                                     coroutineScope.launch {
                                         val generator = PdfGenerator(context)
-                                        val file = generator.generateInvoicePdf(state.business, state.invoice, state.items)
+                                        val file = generator.generateInvoicePdf(state.invoice, state.items)
                                         if (file != null) {
                                             val uri = FileProvider.getUriForFile(
                                                 context,
@@ -190,7 +190,7 @@ fun InvoiceDetails(invoice: Invoice, items: List<InvoiceItem>) {
                 Text("Summary", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val subtotal = invoice.totalAmount - invoice.taxAmount
+                val subtotal = invoice.subtotal
 
                 SummaryRow("Subtotal:", subtotal)
                 if (invoice.totalCgst > 0) SummaryRow("CGST:", invoice.totalCgst)

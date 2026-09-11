@@ -4,6 +4,7 @@ import com.aktarjabed.inbusiness.data.dao.ProductDao
 import com.aktarjabed.inbusiness.data.entities.Product
 import com.aktarjabed.inbusiness.domain.context.BusinessContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,12 +40,12 @@ class ProductRepository @Inject constructor(
         productDao.getUniqueUnitTypes(businessId)
     }
 
-    suspend fun getProductById(id: Long, businessId: String): Product? {
+    suspend fun getProductById(id: Long): Product? {
+        val businessId = businessContext.activeBusinessId.first()
         return productDao.getProductById(id, businessId)
     }
 
     suspend fun saveProduct(
-        businessId: String,
         id: Long,
         name: String,
         brand: String,
@@ -55,6 +56,7 @@ class ProductRepository @Inject constructor(
         batchNumber: String?,
         isWholesaleOnly: Boolean
     ): Long {
+        val businessId = businessContext.activeBusinessId.first()
         require(name.isNotBlank()) { "Name cannot be blank" }
         require(brand.isNotBlank()) { "Brand cannot be blank" }
         require(category.isNotBlank()) { "Category cannot be blank" }
@@ -102,7 +104,8 @@ class ProductRepository @Inject constructor(
         }
     }
 
-    suspend fun deductStock(productId: Long, businessId: String, quantity: Double): StockDeductionResult {
+    suspend fun deductStock(productId: Long, quantity: Double): StockDeductionResult {
+        val businessId = businessContext.activeBusinessId.first()
         require(quantity > 0) { "Deduction quantity must be strictly positive" }
         val affectedRows = productDao.deductStock(productId, businessId, quantity)
         return if (affectedRows > 0) {
@@ -117,7 +120,8 @@ class ProductRepository @Inject constructor(
         }
     }
 
-    suspend fun deleteProduct(productId: Long, businessId: String) {
+    suspend fun deleteProduct(productId: Long) {
+        val businessId = businessContext.activeBusinessId.first()
         val rowsAffected = productDao.deleteProduct(productId, businessId)
         if (rowsAffected == 0) {
              throw IllegalStateException("Failed to delete product. It may not exist or belongs to another business.")
