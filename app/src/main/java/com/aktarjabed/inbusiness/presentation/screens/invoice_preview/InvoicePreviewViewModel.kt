@@ -19,7 +19,7 @@ import javax.inject.Inject
 
 sealed class InvoicePreviewUiState {
     object Loading : InvoicePreviewUiState()
-    data class Success(val business: BusinessData, val invoice: Invoice, val items: List<InvoiceItem>) : InvoicePreviewUiState()
+    data class Success(val invoice: Invoice, val items: List<InvoiceItem>) : InvoicePreviewUiState()
     data class Error(val message: String) : InvoicePreviewUiState()
 }
 
@@ -44,7 +44,7 @@ class InvoicePreviewViewModel @Inject constructor(
                 val result = getInvoiceForPreviewUseCase(invoiceId)
                 when(result) {
                     is PreviewResult.Success -> {
-                        _uiState.value = InvoicePreviewUiState.Success(result.business, result.invoice, result.items)
+                        _uiState.value = InvoicePreviewUiState.Success(result.invoice, result.items)
                     }
                     is PreviewResult.Error -> {
                         _uiState.value = InvoicePreviewUiState.Error(result.message)

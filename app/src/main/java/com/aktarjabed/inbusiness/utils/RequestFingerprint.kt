@@ -8,6 +8,9 @@ import java.util.Locale
 object RequestFingerprint {
     fun generate(
         businessId: String,
+        sellerName: String,
+        sellerAddress: String,
+        sellerGSTIN: String?,
         customerName: String,
         customerGSTIN: String?,
         buyerAddress: String,
@@ -21,27 +24,34 @@ object RequestFingerprint {
     ): String {
         val payload = StringBuilder()
 
-        payload.append(businessId).append("|")
-        payload.append(customerName.trim().lowercase(Locale.ROOT)).append("|")
-        payload.append(customerGSTIN?.trim()?.lowercase(Locale.ROOT) ?: "").append("|")
-        payload.append(buyerAddress.trim().lowercase(Locale.ROOT)).append("|")
-        payload.append(supplyType.name).append("|")
-        payload.append(String.format(Locale.US, "%.2f", subtotal)).append("|")
-        payload.append(String.format(Locale.US, "%.2f", totalAmount)).append("|")
-        payload.append(String.format(Locale.US, "%.2f", taxAmount)).append("|")
-        payload.append(String.format(Locale.US, "%.2f", amountPaid)).append("|")
-        payload.append(paymentMethod).append("|")
+        appendField(payload, businessId)
+        appendField(payload, sellerName.trim().lowercase(Locale.ROOT))
+        appendField(payload, sellerAddress.trim().lowercase(Locale.ROOT))
+        appendField(payload, sellerGSTIN?.trim()?.lowercase(Locale.ROOT) ?: "")
+        appendField(payload, customerName.trim().lowercase(Locale.ROOT))
+        appendField(payload, customerGSTIN?.trim()?.lowercase(Locale.ROOT) ?: "")
+        appendField(payload, buyerAddress.trim().lowercase(Locale.ROOT))
+        appendField(payload, supplyType.name)
+        appendField(payload, String.format(Locale.US, "%.2f", subtotal))
+        appendField(payload, String.format(Locale.US, "%.2f", totalAmount))
+        appendField(payload, String.format(Locale.US, "%.2f", taxAmount))
+        appendField(payload, String.format(Locale.US, "%.2f", amountPaid))
+        appendField(payload, paymentMethod)
 
         for (item in items) {
-            payload.append(item.productId ?: "").append(";")
-            payload.append(item.description.trim().lowercase(Locale.ROOT)).append(";")
-            payload.append(String.format(Locale.US, "%.2f", item.quantity)).append(";")
-            payload.append(String.format(Locale.US, "%.2f", item.pricePerUnit)).append(";")
-            payload.append(String.format(Locale.US, "%.2f", item.gstPercentage)).append(";")
-            payload.append(item.unitType.trim().lowercase(Locale.ROOT)).append("|")
+            appendField(payload, item.productId?.toString() ?: "")
+            appendField(payload, item.description.trim().lowercase(Locale.ROOT))
+            appendField(payload, String.format(Locale.US, "%.2f", item.quantity))
+            appendField(payload, String.format(Locale.US, "%.2f", item.pricePerUnit))
+            appendField(payload, String.format(Locale.US, "%.2f", item.gstPercentage))
+            appendField(payload, item.unitType.trim().lowercase(Locale.ROOT))
         }
 
         return hash(payload.toString())
+    }
+
+    private fun appendField(sb: StringBuilder, value: String) {
+        sb.append(value.length).append(":").append(value)
     }
 
     private fun hash(input: String): String {

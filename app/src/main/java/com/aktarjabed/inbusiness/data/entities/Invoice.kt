@@ -10,7 +10,6 @@ import androidx.room.Index
     tableName = "invoices",
     indices = [
         Index(value = ["businessId", "invoiceNumber"], unique = true),
-        Index(value = ["idempotencyKey"], unique = true),
         Index(value = ["businessId", "idempotencyKey"], unique = true)
     ]
 )

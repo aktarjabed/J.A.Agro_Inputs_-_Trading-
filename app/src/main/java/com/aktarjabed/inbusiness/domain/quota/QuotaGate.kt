@@ -47,24 +47,25 @@ class QuotaGate @Inject constructor(
         val dailyCap = getDailyLimit(entity.tier) + getLaunchBonus(entity.tier)
 
         // Check quotas
-        when {
-            entity.dailyUsed >= dailyCap -> {
-                Log.d(TAG, "Daily cap hit: ${entity.dailyUsed}/$dailyCap")
+        if (entity.tier == "FREE" && entity.monthlyUsed >= 60) {
+            Log.d(TAG, "Monthly cap hit: ${entity.monthlyUsed}/60")
+            return@withContext QuotaVerdict.MonthlyCap
+        }
+
+        if (consume) {
+            val rows = dao.incrementUsage(userId, dailyCap)
+            if (rows > 0) {
+                QuotaVerdict.Allowed(dailyCap - entity.dailyUsed - 1)
+            } else {
+                Log.d(TAG, "Daily cap hit (concurrent/SQL): ${entity.dailyUsed}/$dailyCap")
                 QuotaVerdict.DailyCap(dailyCap)
             }
-
-            entity.tier == "FREE" && entity.monthlyUsed >= 60 -> {
-                Log.d(TAG, "Monthly cap hit: ${entity.monthlyUsed}/60")
-                QuotaVerdict.MonthlyCap
-            }
-
-            else -> {
-                if (consume) {
-                    dao.incrementUsage(userId)
-                    QuotaVerdict.Allowed(dailyCap - entity.dailyUsed - 1)
-                } else {
-                    QuotaVerdict.Allowed(dailyCap - entity.dailyUsed)
-                }
+        } else {
+            if (entity.dailyUsed >= dailyCap) {
+                Log.d(TAG, "Daily cap hit (peek): ${entity.dailyUsed}/$dailyCap")
+                QuotaVerdict.DailyCap(dailyCap)
+            } else {
+                QuotaVerdict.Allowed(dailyCap - entity.dailyUsed)
             }
         }
     }

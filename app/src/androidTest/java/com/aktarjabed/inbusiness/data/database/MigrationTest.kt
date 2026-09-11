@@ -70,6 +70,35 @@ class MigrationTest {
 
     @Test
     @Throws(IOException::class)
+    fun migrate9To10To11() {
+        var db = helper.createDatabase(TEST_DB, 9)
+
+        db.execSQL("""
+            INSERT INTO invoices (id, businessId, invoiceNumber, customerId, customerName, totalAmount, taxAmount, createdAt, updatedAt, idempotencyKey)
+            VALUES ('inv-1', 'biz-1', 'INV-0001', 'cust-1', 'Test Customer', 100.0, 10.0, 1000000, 1000000, 'test-key')
+        """)
+        db.close()
+
+        db = helper.runMigrationsAndValidate(TEST_DB, 10, true, AppDatabase.MIGRATION_9_10)
+
+        var invCursor = db.query("SELECT requestFingerprint, sellerName, sellerAddress, sellerGSTIN, subtotal FROM invoices WHERE id = 'inv-1'")
+        assert(invCursor.moveToFirst())
+        assert(invCursor.getString(invCursor.getColumnIndexOrThrow("sellerName")) == "")
+        assert(invCursor.getString(invCursor.getColumnIndexOrThrow("sellerAddress")) == "")
+        assert(invCursor.isNull(invCursor.getColumnIndexOrThrow("sellerGSTIN")))
+        assert(invCursor.getDouble(invCursor.getColumnIndexOrThrow("subtotal")) == 0.0)
+        invCursor.close()
+
+        db.close()
+        db = helper.runMigrationsAndValidate(TEST_DB, 11, true, AppDatabase.MIGRATION_10_11)
+
+        invCursor = db.query("SELECT * FROM invoices WHERE id = 'inv-1'")
+        assert(invCursor.moveToFirst())
+        invCursor.close()
+    }
+
+    @Test
+    @Throws(IOException::class)
     fun migrate8To9() {
         var db = helper.createDatabase(TEST_DB, 8)
         db.execSQL("""

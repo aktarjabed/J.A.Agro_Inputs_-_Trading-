@@ -36,6 +36,7 @@ fun InvoiceScreen(
     val supplyType by viewModel.supplyType.collectAsState()
     val items by viewModel.invoiceItems.collectAsState()
     val products by viewModel.products.collectAsState()
+    val grandTotal by viewModel.grandTotal.collectAsState()
 
     var showAddItemDialog by remember { mutableStateOf(false) }
 
@@ -47,6 +48,7 @@ fun InvoiceScreen(
         if (uiState is InvoiceUiState.Success) {
             val invoiceId = (uiState as InvoiceUiState.Success).invoiceId
             delay(1500)
+            viewModel.resetIdempotencyKey() // Reset for the next invoice if we come back
             onNavigateToPreview(invoiceId)
         }
     }
@@ -172,8 +174,68 @@ fun InvoiceScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        // Payment Details
+                        val amountPaid by viewModel.amountPaid.collectAsState()
+                        val paymentMethod by viewModel.paymentMethod.collectAsState()
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Payment Details", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    var amountStr by remember { mutableStateOf(if (amountPaid > 0) amountPaid.toString() else "") }
+                                    OutlinedTextField(
+                                        value = amountStr,
+                                        onValueChange = {
+                                            amountStr = it
+                                            val d = it.toDoubleOrNull()
+                                            if (d != null) {
+                                                viewModel.amountPaid.value = d
+                                            } else if (it.isBlank()) {
+                                                viewModel.amountPaid.value = 0.0
+                                            }
+                                        },
+                                        label = { Text("Amount Paid (₹)") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    var expanded by remember { mutableStateOf(false) }
+                                    ExposedDropdownMenuBox(
+                                        expanded = expanded,
+                                        onExpandedChange = { expanded = !expanded },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = paymentMethod,
+                                            onValueChange = {},
+                                            readOnly = true,
+                                            label = { Text("Method") },
+                                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                                        )
+                                        ExposedDropdownMenu(
+                                            expanded = expanded,
+                                            onDismissRequest = { expanded = false }
+                                        ) {
+                                            listOf("NONE", "CASH", "CARD", "UPI", "BANK_TRANSFER").forEach { method ->
+                                                DropdownMenuItem(
+                                                    text = { Text(method) },
+                                                    onClick = {
+                                                        viewModel.paymentMethod.value = method
+                                                        expanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
                         // Totals & Submit
-                        val grandTotal = items.sumOf { it.taxResult?.totalAmount ?: 0.0 }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,

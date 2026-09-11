@@ -29,8 +29,8 @@ class KeyProvider @Inject constructor(
                 generateAndStorePassphrase()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to retrieve passphrase, generating fallback", e)
-            generateFallbackPassphrase()
+            Log.e(TAG, "Failed to retrieve passphrase", e)
+            throw SecurityException("Failed to retrieve or generate secure database passphrase", e)
         }
     }
 
@@ -78,26 +78,6 @@ class KeyProvider @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create EncryptedSharedPreferences", e)
             throw SecurityException("Failed to initialize secure storage", e)
-        }
-    }
-
-    private fun generateFallbackPassphrase(): String {
-        Log.w(TAG, "Using fallback passphrase generation (less secure)")
-
-        val packageName = context.packageName
-        val timestamp = context.packageManager
-            .getPackageInfo(packageName, 0)
-            .firstInstallTime
-
-        val fallbackSeed = "$packageName-$timestamp-inbusiness-db-key"
-
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            java.util.Base64.getEncoder().encodeToString(fallbackSeed.toByteArray())
-        } else {
-            android.util.Base64.encodeToString(
-                fallbackSeed.toByteArray(),
-                android.util.Base64.NO_WRAP
-            )
         }
     }
 

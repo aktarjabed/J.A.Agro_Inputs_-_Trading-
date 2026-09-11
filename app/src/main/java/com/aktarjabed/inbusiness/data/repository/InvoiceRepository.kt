@@ -7,7 +7,9 @@ import com.aktarjabed.inbusiness.data.dao.ProductDao
 import com.aktarjabed.inbusiness.data.database.AppDatabase
 import com.aktarjabed.inbusiness.data.entities.Invoice
 import com.aktarjabed.inbusiness.data.entities.InvoiceItem
+import com.aktarjabed.inbusiness.data.dao.BusinessDao
 import com.aktarjabed.inbusiness.data.entities.InvoiceSequence
+import com.aktarjabed.inbusiness.domain.invoice.CalculateInvoiceTotalsUseCase
 import com.aktarjabed.inbusiness.domain.invoice.InvoiceCreationResult
 import com.aktarjabed.inbusiness.domain.invoice.SupplyType
 import com.aktarjabed.inbusiness.domain.context.BusinessContext
@@ -27,6 +29,8 @@ class InvoiceRepository @Inject constructor(
     private val database: AppDatabase,
     private val invoiceDao: InvoiceDao,
     private val productDao: ProductDao,
+    private val businessDao: BusinessDao,
+    private val calculateInvoiceTotalsUseCase: CalculateInvoiceTotalsUseCase,
     private val quotaGate: QuotaGate,
     private val businessContext: BusinessContext
 ) {
@@ -50,10 +54,9 @@ class InvoiceRepository @Inject constructor(
         return invoiceDao.getInvoiceItems(invoiceId, businessId)
     }
 
-    suspend fun updateInvoice(invoice: Invoice): Boolean {
+    suspend fun updateInvoicePayment(invoiceId: String, amountPaid: Double, balanceDue: Double, paymentMethod: String): Boolean {
         val businessId = businessContext.activeBusinessId.first()
-        if (invoice.businessId != businessId) return false
-        return invoiceDao.updateInvoice(invoice) > 0
+        return invoiceDao.updateInvoicePayment(invoiceId, businessId, amountPaid, balanceDue, paymentMethod) > 0
     }
 
     suspend fun deleteInvoice(invoiceId: String): Boolean {
@@ -62,43 +65,50 @@ class InvoiceRepository @Inject constructor(
     }
 
     suspend fun createInvoice(
-        sellerName: String,
-        sellerAddress: String,
-        sellerGSTIN: String?,
         customerName: String,
         customerGSTIN: String?,
         buyerAddress: String,
         supplyType: SupplyType,
-        subtotal: Double,
-        totalAmount: Double,
-        taxAmount: Double,
-        totalCgst: Double,
-        totalSgst: Double,
-        totalIgst: Double,
         items: List<InvoiceItem>,
         idempotencyKey: String? = null,
         amountPaid: Double = 0.0,
         paymentMethod: String = "NONE"
     ): InvoiceCreationResult = withContext(Dispatchers.IO) {
-        val balanceDue = totalAmount - amountPaid
-        if (amountPaid > totalAmount) {
-            return@withContext InvoiceCreationResult.InvalidRequest("Amount paid cannot exceed total amount")
+
+        if (items.isEmpty()) {
+            return@withContext InvoiceCreationResult.InvalidRequest("Invoice must have at least one item")
         }
 
         val businessId = businessContext.activeBusinessId.first()
         val userId = businessContext.currentUserId.first()
 
+        val businessData = businessDao.getBusinessDataById(businessId)
+            ?: return@withContext InvoiceCreationResult.InvalidRequest("Business data not found")
+
+        val sellerName = businessData.name
+        val sellerAddress = businessData.address
+        val sellerGSTIN = businessData.gstin
+
+        val calcResult = try {
+            calculateInvoiceTotalsUseCase(items, supplyType, amountPaid)
+        } catch (e: Exception) {
+            return@withContext InvoiceCreationResult.InvalidRequest(e.message ?: "Invalid calculation")
+        }
+
         val requestFingerprint = com.aktarjabed.inbusiness.utils.RequestFingerprint.generate(
             businessId = businessId,
+            sellerName = sellerName,
+            sellerAddress = sellerAddress,
+            sellerGSTIN = sellerGSTIN,
             customerName = customerName,
             customerGSTIN = customerGSTIN,
             buyerAddress = buyerAddress,
             supplyType = supplyType,
-            subtotal = subtotal,
-            totalAmount = totalAmount,
-            taxAmount = taxAmount,
-            items = items,
-            amountPaid = amountPaid,
+            subtotal = calcResult.subtotal,
+            totalAmount = calcResult.totalAmount,
+            taxAmount = calcResult.taxAmount,
+            items = calcResult.processedItems,
+            amountPaid = calcResult.amountPaid,
             paymentMethod = paymentMethod
         )
 
@@ -106,7 +116,7 @@ class InvoiceRepository @Inject constructor(
             database.withTransaction {
                 // 1. Idempotency Check (Fast path)
                 if (idempotencyKey != null) {
-                    val existingInvoice = invoiceDao.getInvoiceByIdempotencyKey(idempotencyKey)
+                    val existingInvoice = invoiceDao.getInvoiceByIdempotencyKey(idempotencyKey, businessId)
                     if (existingInvoice != null) {
                         if (existingInvoice.requestFingerprint == requestFingerprint) {
                             return@withTransaction InvoiceCreationResult.IdempotentReplay(existingInvoice.id, existingInvoice.invoiceNumber)
@@ -171,21 +181,21 @@ class InvoiceRepository @Inject constructor(
                     customerName = customerName,
                     customerGSTIN = customerGSTIN,
                     buyerAddress = buyerAddress,
-                    subtotal = subtotal,
-                    totalAmount = totalAmount,
-                    taxAmount = taxAmount,
-                    totalCgst = totalCgst,
-                    totalSgst = totalSgst,
-                    totalIgst = totalIgst,
+                    subtotal = calcResult.subtotal,
+                    totalAmount = calcResult.totalAmount,
+                    taxAmount = calcResult.taxAmount,
+                    totalCgst = calcResult.totalCgst,
+                    totalSgst = calcResult.totalSgst,
+                    totalIgst = calcResult.totalIgst,
                     supplyType = supplyType.name,
-                    amountPaid = amountPaid,
-                    balanceDue = balanceDue,
+                    amountPaid = calcResult.amountPaid,
+                    balanceDue = calcResult.balanceDue,
                     paymentMethod = paymentMethod,
                     createdAt = Instant.now(),
                     updatedAt = Instant.now()
                 )
 
-                val updatedItems = items.map {
+                val updatedItems = calcResult.processedItems.map {
                     it.copy(
                         invoiceId = invoiceId,
                         id = UUID.randomUUID().toString()
@@ -202,7 +212,7 @@ class InvoiceRepository @Inject constructor(
              // Transaction has rolled back by now
              Log.e(TAG, "Idempotency constraint conflict", e)
              if (idempotencyKey != null) {
-                 val existing = invoiceDao.getInvoiceByIdempotencyKey(idempotencyKey)
+                 val existing = invoiceDao.getInvoiceByIdempotencyKey(idempotencyKey, businessId)
                  if (existing != null) {
                      // Verify payload consistency
                      if (existing.requestFingerprint == requestFingerprint) {

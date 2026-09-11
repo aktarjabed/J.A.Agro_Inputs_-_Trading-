@@ -15,13 +15,15 @@ object AmountInWordsConverter {
     )
 
     fun convertAmountToWords(amount: Double): String {
-        val longAmount = amount.toLong()
-        val paise = ((amount - longAmount) * 100).roundToLong()
+        if (amount < 0) return "Invalid Amount"
+        val totalPaise = (amount * 100).roundToLong()
+        val rupees = totalPaise / 100
+        val paise = totalPaise % 100
 
-        val rupeesPart = if (longAmount == 0L) {
+        val rupeesPart = if (rupees == 0L) {
             "Zero"
         } else {
-            convert(longAmount).trim()
+            convert(rupees).trim()
         }
 
         return if (paise > 0L) {
