@@ -118,7 +118,7 @@ class PdfGenerator(private val context: Context) {
         yPosition = drawTerms(canvas, yPosition)
 
         // Footer
-        drawFooter(canvas, business)
+        drawFooter(canvas, business, invoice)
 
         pdfDocument.finishPage(page)
 
@@ -146,15 +146,19 @@ class PdfGenerator(private val context: Context) {
         canvas.drawText("TAX INVOICE", PAGE_WIDTH / 2f - titlePaint.measureText("TAX INVOICE") / 2, y, titlePaint)
         y += 40f
 
-        // Seller Info (Left)
-        canvas.drawText(business.name, MARGIN, y, boldPaint)
+        // Seller Info (Left) - use persisted snapshot from invoice
+        val sellerName = invoice.sellerName.ifBlank { business.name }
+        val sellerGstin = invoice.sellerGSTIN ?: business.gstin
+        val sellerAddress = invoice.sellerAddress.ifBlank { business.address }
+
+        canvas.drawText(sellerName, MARGIN, y, boldPaint)
         y += 20f
-        if (!business.gstin.isNullOrBlank()) {
-            canvas.drawText("GSTIN: ${business.gstin}", MARGIN, y, textPaint)
+        if (!sellerGstin.isNullOrBlank()) {
+            canvas.drawText("GSTIN: ${sellerGstin}", MARGIN, y, textPaint)
             y += 20f
         }
-        if (business.address.isNotBlank()) {
-            canvas.drawText(business.address, MARGIN, y, textPaint)
+        if (sellerAddress.isNotBlank()) {
+            canvas.drawText(sellerAddress, MARGIN, y, textPaint)
             y += 20f
         }
 
@@ -258,9 +262,7 @@ class PdfGenerator(private val context: Context) {
         var y = startY
         val rightMargin = PAGE_WIDTH - MARGIN - 5f
 
-        val subtotal = invoice.totalAmount - invoice.taxAmount
-
-        val subtotalStr = "Subtotal: Rs. ${String.format(Locale.US, "%.2f", subtotal)}"
+        val subtotalStr = "Subtotal: Rs. ${String.format(Locale.US, "%.2f", invoice.subtotal)}"
         canvas.drawText(subtotalStr, rightMargin - textPaint.measureText(subtotalStr), y, textPaint)
         y += 20f
 
@@ -327,11 +329,12 @@ class PdfGenerator(private val context: Context) {
         return y + 20f
     }
 
-    private fun drawFooter(canvas: Canvas, business: BusinessData) {
+    private fun drawFooter(canvas: Canvas, business: BusinessData, invoice: Invoice) {
         val y = PAGE_HEIGHT - 60f
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, textPaint)
 
-        canvas.drawText("For ${business.name}", PAGE_WIDTH - MARGIN - boldPaint.measureText("For ${business.name}"), y + 20f, boldPaint)
+        val sellerName = invoice.sellerName.ifBlank { business.name }
+        canvas.drawText("For $sellerName", PAGE_WIDTH - MARGIN - boldPaint.measureText("For $sellerName"), y + 20f, boldPaint)
         canvas.drawText("Authorized Signatory", PAGE_WIDTH - MARGIN - textPaint.measureText("Authorized Signatory"), y + 40f, smallTextPaint)
     }
 }

@@ -6,16 +6,16 @@ import androidx.lifecycle.viewModelScope
 import com.aktarjabed.inbusiness.data.entities.InvoiceItem
 import com.aktarjabed.inbusiness.data.entities.Product
 import com.aktarjabed.inbusiness.data.repository.ProductRepository
+import com.aktarjabed.inbusiness.data.repository.BusinessRepository
 import com.aktarjabed.inbusiness.domain.usecase.CreateInvoiceUseCase
 import com.aktarjabed.inbusiness.domain.quota.QuotaGate
 import com.aktarjabed.inbusiness.domain.quota.QuotaVerdict
 import com.aktarjabed.inbusiness.domain.context.BusinessContext
+import com.aktarjabed.inbusiness.domain.invoice.CalculateInvoiceTotalsUseCase
 import com.aktarjabed.inbusiness.domain.invoice.GstCalculator
 import com.aktarjabed.inbusiness.domain.invoice.InvoiceCreationResult
 import com.aktarjabed.inbusiness.domain.invoice.SupplyType
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.math.BigDecimal
-import java.math.RoundingMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,8 +27,10 @@ import javax.inject.Inject
 class InvoiceViewModel @Inject constructor(
     private val quotaGate: QuotaGate,
     private val createInvoiceUseCase: CreateInvoiceUseCase,
+    private val calculateInvoiceTotalsUseCase: CalculateInvoiceTotalsUseCase,
     private val businessContext: BusinessContext,
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    private val businessRepository: BusinessRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<InvoiceUiState>(InvoiceUiState.Initial)
@@ -39,7 +41,9 @@ class InvoiceViewModel @Inject constructor(
     val customerGSTIN = MutableStateFlow("")
     val buyerAddress = MutableStateFlow("")
 
-    val sellerGstin = MutableStateFlow("") // In a real app, this should come from BusinessData
+    val sellerName = MutableStateFlow("")
+    val sellerAddress = MutableStateFlow("")
+    val sellerGstin = MutableStateFlow("")
     val supplyType = MutableStateFlow(SupplyType.UNKNOWN)
 
     // Items state
@@ -58,6 +62,28 @@ class InvoiceViewModel @Inject constructor(
         viewModelScope.launch {
             productRepository.getAllProducts().collect { productList ->
                 _products.value = productList
+            }
+        }
+
+        // Observe business data for Seller GSTIN
+        viewModelScope.launch {
+            try {
+                val currentBusinessId = businessContext.activeBusinessId.first()
+                val businessData = businessRepository.getBusinessDataById(currentBusinessId)
+                if (businessData != null) {
+                    sellerName.value = businessData.name
+                    sellerAddress.value = businessData.address
+                    if (!businessData.gstin.isNullOrBlank()) {
+                        sellerGstin.value = businessData.gstin
+                    }
+
+                    // Re-evaluate supply type if customer GSTIN is already provided
+                    if (customerGSTIN.value.isNotBlank() && sellerGstin.value.isNotBlank()) {
+                        supplyType.value = GstCalculator.determineSupplyType(sellerGstin.value, customerGSTIN.value)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load business data for GSTIN", e)
             }
         }
     }
@@ -149,56 +175,41 @@ class InvoiceViewModel @Inject constructor(
 
             try {
                 val idempotencyKey = java.util.UUID.randomUUID().toString()
-                // Calculate totals
-                var totalAmount = BigDecimal.ZERO
-                var taxAmount = BigDecimal.ZERO
-                var totalCgst = BigDecimal.ZERO
-                var totalSgst = BigDecimal.ZERO
-                var totalIgst = BigDecimal.ZERO
 
-                val domainItems = _invoiceItems.value.map { input ->
-                    val taxResult = GstCalculator.calculateItemTaxes(quantity = input.quantity, unitPrice = input.pricePerUnit, gstPercentage = input.gstPercentage, supplyType = supplyType.value)
-
-                    totalAmount = totalAmount.add(BigDecimal.valueOf(taxResult.totalAmount))
-                    taxAmount = taxAmount.add(BigDecimal.valueOf(taxResult.taxAmount))
-                    totalCgst = totalCgst.add(BigDecimal.valueOf(taxResult.cgstAmount))
-                    totalSgst = totalSgst.add(BigDecimal.valueOf(taxResult.sgstAmount))
-                    totalIgst = totalIgst.add(BigDecimal.valueOf(taxResult.igstAmount))
-
+                val rawItems = _invoiceItems.value.map { input ->
                     InvoiceItem(
                         description = input.description,
                         quantity = input.quantity,
                         pricePerUnit = input.pricePerUnit,
                         unitType = input.unitType,
-
-                        subTotal = taxResult.subtotal,
                         gstPercentage = input.gstPercentage,
-                        taxAmount = taxResult.taxAmount,
-                        totalAmount = taxResult.totalAmount,
                         productId = input.productId
                     )
                 }
 
-                val roundedTotalAmount = totalAmount.setScale(2, RoundingMode.HALF_UP).toDouble()
-                val roundedTaxAmount = taxAmount.setScale(2, RoundingMode.HALF_UP).toDouble()
-                val roundedTotalCgst = totalCgst.setScale(2, RoundingMode.HALF_UP).toDouble()
-                val roundedTotalSgst = totalSgst.setScale(2, RoundingMode.HALF_UP).toDouble()
-                val roundedTotalIgst = totalIgst.setScale(2, RoundingMode.HALF_UP).toDouble()
-
+                val calculationResult = calculateInvoiceTotalsUseCase(
+                    items = rawItems,
+                    supplyType = supplyType.value,
+                    amountPaid = amountPaid.value
+                )
 
                 val result = createInvoiceUseCase(
+                    sellerName = sellerName.value,
+                    sellerAddress = sellerAddress.value,
+                    sellerGSTIN = sellerGstin.value.takeIf { it.isNotBlank() },
                     customerName = customerName.value,
                     customerGSTIN = customerGSTIN.value,
                     buyerAddress = buyerAddress.value,
                     supplyType = supplyType.value,
-                    totalAmount = roundedTotalAmount,
-                    taxAmount = roundedTaxAmount,
-                    totalCgst = roundedTotalCgst,
-                    totalSgst = roundedTotalSgst,
-                    totalIgst = roundedTotalIgst,
-                    items = domainItems,
+                    subtotal = calculationResult.subtotal,
+                    totalAmount = calculationResult.totalAmount,
+                    taxAmount = calculationResult.taxAmount,
+                    totalCgst = calculationResult.totalCgst,
+                    totalSgst = calculationResult.totalSgst,
+                    totalIgst = calculationResult.totalIgst,
+                    items = calculationResult.processedItems,
                     idempotencyKey = idempotencyKey,
-                    amountPaid = amountPaid.value,
+                    amountPaid = calculationResult.amountPaid,
                     paymentMethod = paymentMethod.value
                 )
 

@@ -33,6 +33,7 @@ class InvoiceTransactionTest {
     private lateinit var userQuotaDao: UserQuotaDao
     private lateinit var quotaGate: QuotaGate
     private lateinit var repository: InvoiceRepository
+    private lateinit var businessContext: com.aktarjabed.inbusiness.domain.context.BusinessContext
 
     private val businessId = "test_business_id"
     private val userId = "test_user_id"
@@ -54,7 +55,12 @@ class InvoiceTransactionTest {
         `when`(mockClock.today()).thenReturn(LocalDate.of(2025, 1, 1))
 
         quotaGate = QuotaGate(userQuotaDao, mockDeviceClassifier, mockClock, context)
-        repository = InvoiceRepository(db, invoiceDao, productDao, quotaGate)
+
+        businessContext = mock(com.aktarjabed.inbusiness.domain.context.BusinessContext::class.java)
+        `when`(businessContext.activeBusinessId).thenReturn(kotlinx.coroutines.flow.flowOf(businessId))
+        `when`(businessContext.currentUserId).thenReturn(kotlinx.coroutines.flow.flowOf(userId))
+
+        repository = InvoiceRepository(db, invoiceDao, productDao, quotaGate, businessContext)
 
         runBlocking {
             userQuotaDao.insertOrReplace(UserQuotaEntity(
@@ -93,8 +99,8 @@ class InvoiceTransactionTest {
         )
 
         val result = repository.createInvoice(
-            userId = userId, businessId = businessId, customerName = "Test Cust", customerGSTIN = null, buyerAddress = "",
-            supplyType = SupplyType.INTRA_STATE, totalAmount = 1500.0, taxAmount = 0.0, totalCgst = 0.0, totalSgst = 0.0, totalIgst = 0.0,
+            sellerName = "Seller", sellerAddress = "Address", sellerGSTIN = null, customerName = "Test Cust", customerGSTIN = null, buyerAddress = "",
+            supplyType = SupplyType.INTRA_STATE, subtotal = 1500.0, totalAmount = 1500.0, taxAmount = 0.0, totalCgst = 0.0, totalSgst = 0.0, totalIgst = 0.0,
             items = items
         )
 
