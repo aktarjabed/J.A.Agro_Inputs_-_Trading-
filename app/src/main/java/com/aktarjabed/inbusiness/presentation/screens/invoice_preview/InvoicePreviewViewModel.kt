@@ -5,17 +5,15 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.aktarjabed.inbusiness.data.dao.InvoiceDao
 import com.aktarjabed.inbusiness.data.entities.Invoice
 import com.aktarjabed.inbusiness.data.entities.InvoiceItem
 import com.aktarjabed.inbusiness.data.entities.BusinessData
-import com.aktarjabed.inbusiness.data.dao.BusinessDao
-import com.aktarjabed.inbusiness.domain.context.BusinessContext
+import com.aktarjabed.inbusiness.domain.usecase.GetInvoiceForPreviewUseCase
+import com.aktarjabed.inbusiness.domain.usecase.PreviewResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -27,9 +25,7 @@ sealed class InvoicePreviewUiState {
 
 @HiltViewModel
 class InvoicePreviewViewModel @Inject constructor(
-    private val invoiceDao: InvoiceDao,
-    private val businessDao: BusinessDao,
-    private val businessContext: BusinessContext,
+    private val getInvoiceForPreviewUseCase: GetInvoiceForPreviewUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -45,17 +41,15 @@ class InvoicePreviewViewModel @Inject constructor(
     private fun loadInvoice() {
         viewModelScope.launch {
             try {
-                val currentBusinessId = businessContext.activeBusinessId.first()
-                val invoice = invoiceDao.getInvoiceById(invoiceId, currentBusinessId)
-
-                if (invoice == null) {
-                    _uiState.value = InvoicePreviewUiState.Error("Invoice not found")
-                    return@launch
+                val result = getInvoiceForPreviewUseCase(invoiceId)
+                when(result) {
+                    is PreviewResult.Success -> {
+                        _uiState.value = InvoicePreviewUiState.Success(result.business, result.invoice, result.items)
+                    }
+                    is PreviewResult.Error -> {
+                        _uiState.value = InvoicePreviewUiState.Error(result.message)
+                    }
                 }
-
-                val items = invoiceDao.getInvoiceItems(invoiceId)
-                val business = businessDao.getBusinessDataById(currentBusinessId) ?: return@launch
-                _uiState.value = InvoicePreviewUiState.Success(business, invoice, items)
             } catch (e: Exception) {
                 Log.e("InvoicePreviewViewModel", "Failed to load invoice", e)
                 _uiState.value = InvoicePreviewUiState.Error(e.message ?: "Unknown error occurred")

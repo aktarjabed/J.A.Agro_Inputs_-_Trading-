@@ -21,8 +21,8 @@ interface InvoiceDao {
     @Query("SELECT * FROM invoices WHERE idempotencyKey = :idempotencyKey LIMIT 1")
     suspend fun getInvoiceByIdempotencyKey(idempotencyKey: String): Invoice?
 
-    @Query("SELECT * FROM invoice_items WHERE invoiceId = :invoiceId")
-    suspend fun getInvoiceItems(invoiceId: String): List<InvoiceItem>
+    @Query("SELECT * FROM invoice_items WHERE invoiceId = :invoiceId AND invoiceId IN (SELECT id FROM invoices WHERE businessId = :businessId)")
+    suspend fun getInvoiceItems(invoiceId: String, businessId: String): List<InvoiceItem>
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertInvoice(invoice: Invoice)
@@ -30,21 +30,32 @@ interface InvoiceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItem(item: InvoiceItem)
 
+    @Update
+    suspend fun _updateInvoice(invoice: Invoice): Int
+
     @Transaction
-    suspend fun updateInvoiceWithItems(invoice: Invoice, items: List<InvoiceItem>) {
-        updateInvoice(invoice)
-        deleteItemsForInvoice(invoice.id)
-        items.forEach { insertItem(it) }
+    suspend fun updateInvoice(invoice: Invoice): Int {
+        val existing = getInvoiceById(invoice.id, invoice.businessId)
+        if (existing != null) {
+            return _updateInvoice(invoice)
+        }
+        return 0
     }
 
-    @Update
-    suspend fun updateInvoice(invoice: Invoice)
+    @Transaction
+    suspend fun updateInvoiceWithItems(invoice: Invoice, items: List<InvoiceItem>) {
+        val updated = updateInvoice(invoice)
+        if (updated > 0) {
+            deleteItemsForInvoice(invoice.id, invoice.businessId)
+            items.forEach { insertItem(it) }
+        }
+    }
 
-    @Query("DELETE FROM invoice_items WHERE invoiceId = :invoiceId")
-    suspend fun deleteItemsForInvoice(invoiceId: String)
+    @Query("DELETE FROM invoice_items WHERE invoiceId = :invoiceId AND invoiceId IN (SELECT id FROM invoices WHERE businessId = :businessId)")
+    suspend fun deleteItemsForInvoice(invoiceId: String, businessId: String): Int
 
-    @Delete
-    suspend fun deleteInvoice(invoice: Invoice)
+    @Query("DELETE FROM invoices WHERE id = :invoiceId AND businessId = :businessId")
+    suspend fun deleteInvoice(invoiceId: String, businessId: String): Int
 
     @Query("SELECT * FROM invoices WHERE businessId = :businessId AND (invoiceNumber LIKE '%' || :query || '%' OR customerName LIKE '%' || :query || '%')")
     fun searchInvoices(businessId: String, query: String): Flow<List<Invoice>>

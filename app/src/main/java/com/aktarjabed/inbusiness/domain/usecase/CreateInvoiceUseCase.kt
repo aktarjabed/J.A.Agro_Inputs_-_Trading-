@@ -13,10 +13,14 @@ class CreateInvoiceUseCase @Inject constructor(
     private val businessContext: BusinessContext
 ) {
     suspend operator fun invoke(
+        sellerName: String,
+        sellerAddress: String,
+        sellerGSTIN: String?,
         customerName: String,
         customerGSTIN: String?,
         buyerAddress: String,
         supplyType: SupplyType,
+        subtotal: Double,
         totalAmount: Double,
         taxAmount: Double,
         totalCgst: Double,
@@ -27,16 +31,15 @@ class CreateInvoiceUseCase @Inject constructor(
         amountPaid: Double = 0.0,
         paymentMethod: String = "NONE"
     ): InvoiceCreationResult {
-        val currentUserId = businessContext.currentUserId.first()
-        val currentBusinessId = businessContext.activeBusinessId.first()
-
         return invoiceRepository.createInvoice(
-            userId = currentUserId,
-            businessId = currentBusinessId,
+            sellerName = sellerName,
+            sellerAddress = sellerAddress,
+            sellerGSTIN = sellerGSTIN,
             customerName = customerName,
             customerGSTIN = customerGSTIN,
             buyerAddress = buyerAddress,
             supplyType = supplyType,
+            subtotal = subtotal,
             totalAmount = totalAmount,
             taxAmount = taxAmount,
             totalCgst = totalCgst,

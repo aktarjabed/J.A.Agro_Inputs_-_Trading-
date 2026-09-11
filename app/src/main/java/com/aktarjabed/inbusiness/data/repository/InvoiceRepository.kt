@@ -10,9 +10,12 @@ import com.aktarjabed.inbusiness.data.entities.InvoiceItem
 import com.aktarjabed.inbusiness.data.entities.InvoiceSequence
 import com.aktarjabed.inbusiness.domain.invoice.InvoiceCreationResult
 import com.aktarjabed.inbusiness.domain.invoice.SupplyType
+import com.aktarjabed.inbusiness.domain.context.BusinessContext
 import com.aktarjabed.inbusiness.domain.quota.QuotaGate
 import com.aktarjabed.inbusiness.domain.quota.QuotaVerdict
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.util.UUID
@@ -24,20 +27,49 @@ class InvoiceRepository @Inject constructor(
     private val database: AppDatabase,
     private val invoiceDao: InvoiceDao,
     private val productDao: ProductDao,
-    private val quotaGate: QuotaGate
+    private val quotaGate: QuotaGate,
+    private val businessContext: BusinessContext
 ) {
 
     companion object {
         private const val TAG = "InvoiceRepository"
     }
 
+    suspend fun getAllInvoicesOnce(): List<Invoice> {
+        val businessId = businessContext.activeBusinessId.first()
+        return invoiceDao.getAllInvoicesOnce(businessId)
+    }
+
+    suspend fun getInvoiceById(id: String): Invoice? {
+        val businessId = businessContext.activeBusinessId.first()
+        return invoiceDao.getInvoiceById(id, businessId)
+    }
+
+    suspend fun getInvoiceItems(invoiceId: String): List<InvoiceItem> {
+        val businessId = businessContext.activeBusinessId.first()
+        return invoiceDao.getInvoiceItems(invoiceId, businessId)
+    }
+
+    suspend fun updateInvoice(invoice: Invoice): Boolean {
+        val businessId = businessContext.activeBusinessId.first()
+        if (invoice.businessId != businessId) return false
+        return invoiceDao.updateInvoice(invoice) > 0
+    }
+
+    suspend fun deleteInvoice(invoiceId: String): Boolean {
+        val businessId = businessContext.activeBusinessId.first()
+        return invoiceDao.deleteInvoice(invoiceId, businessId) > 0
+    }
+
     suspend fun createInvoice(
-        userId: String,
-        businessId: String,
+        sellerName: String,
+        sellerAddress: String,
+        sellerGSTIN: String?,
         customerName: String,
         customerGSTIN: String?,
         buyerAddress: String,
         supplyType: SupplyType,
+        subtotal: Double,
         totalAmount: Double,
         taxAmount: Double,
         totalCgst: Double,
@@ -53,13 +85,34 @@ class InvoiceRepository @Inject constructor(
             return@withContext InvoiceCreationResult.InvalidRequest("Amount paid cannot exceed total amount")
         }
 
+        val businessId = businessContext.activeBusinessId.first()
+        val userId = businessContext.currentUserId.first()
+
+        val requestFingerprint = com.aktarjabed.inbusiness.utils.RequestFingerprint.generate(
+            businessId = businessId,
+            customerName = customerName,
+            customerGSTIN = customerGSTIN,
+            buyerAddress = buyerAddress,
+            supplyType = supplyType,
+            subtotal = subtotal,
+            totalAmount = totalAmount,
+            taxAmount = taxAmount,
+            items = items,
+            amountPaid = amountPaid,
+            paymentMethod = paymentMethod
+        )
+
         try {
             database.withTransaction {
                 // 1. Idempotency Check (Fast path)
                 if (idempotencyKey != null) {
                     val existingInvoice = invoiceDao.getInvoiceByIdempotencyKey(idempotencyKey)
                     if (existingInvoice != null) {
-                        return@withTransaction InvoiceCreationResult.IdempotentReplay(existingInvoice.id, existingInvoice.invoiceNumber)
+                        if (existingInvoice.requestFingerprint == requestFingerprint) {
+                            return@withTransaction InvoiceCreationResult.IdempotentReplay(existingInvoice.id, existingInvoice.invoiceNumber)
+                        } else {
+                            return@withTransaction InvoiceCreationResult.InvalidRequest("Idempotency key reused for a different payload")
+                        }
                     }
                 }
 
@@ -109,11 +162,16 @@ class InvoiceRepository @Inject constructor(
                     id = invoiceId,
                     businessId = businessId,
                     idempotencyKey = idempotencyKey,
+                    requestFingerprint = requestFingerprint,
                     invoiceNumber = nextInvoiceNumber,
+                    sellerName = sellerName,
+                    sellerAddress = sellerAddress,
+                    sellerGSTIN = sellerGSTIN,
                     customerId = "", // Reserved for full customer management
                     customerName = customerName,
                     customerGSTIN = customerGSTIN,
                     buyerAddress = buyerAddress,
+                    subtotal = subtotal,
                     totalAmount = totalAmount,
                     taxAmount = taxAmount,
                     totalCgst = totalCgst,
@@ -147,13 +205,16 @@ class InvoiceRepository @Inject constructor(
                  val existing = invoiceDao.getInvoiceByIdempotencyKey(idempotencyKey)
                  if (existing != null) {
                      // Verify payload consistency
-                     if (existing.totalAmount != totalAmount || existing.customerName != customerName) {
+                     if (existing.requestFingerprint == requestFingerprint) {
+                         return@withContext InvoiceCreationResult.IdempotentReplay(existing.id, existing.invoiceNumber)
+                     } else {
                          return@withContext InvoiceCreationResult.InvalidRequest("Idempotency key reused for a different payload")
                      }
-                     return@withContext InvoiceCreationResult.IdempotentReplay(existing.id, existing.invoiceNumber)
                  }
              }
              return@withContext InvoiceCreationResult.UnexpectedFailure(e)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+             throw e // Explicitly rethrow CancellationException
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create invoice", e)
             return@withContext InvoiceCreationResult.UnexpectedFailure(e)

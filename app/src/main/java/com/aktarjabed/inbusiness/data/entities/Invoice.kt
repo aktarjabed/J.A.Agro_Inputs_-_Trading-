@@ -10,18 +10,24 @@ import androidx.room.Index
     tableName = "invoices",
     indices = [
         Index(value = ["businessId", "invoiceNumber"], unique = true),
-        Index(value = ["idempotencyKey"], unique = true)
+        Index(value = ["idempotencyKey"], unique = true),
+        Index(value = ["businessId", "idempotencyKey"], unique = true)
     ]
 )
 data class Invoice(
     @PrimaryKey val id: String = "",
     val businessId: String = "",
     val idempotencyKey: String? = null,
+    val requestFingerprint: String? = null,
     val invoiceNumber: String = "",
+    val sellerName: String = "",
+    val sellerAddress: String = "",
+    val sellerGSTIN: String? = null,
     val customerId: String = "",
     val customerName: String = "",
     val customerGSTIN: String? = null,
     val buyerAddress: String = "",
+    val subtotal: Double = 0.0,
     val totalAmount: Double = 0.0,
     val taxAmount: Double = 0.0,
     val totalCgst: Double = 0.0,

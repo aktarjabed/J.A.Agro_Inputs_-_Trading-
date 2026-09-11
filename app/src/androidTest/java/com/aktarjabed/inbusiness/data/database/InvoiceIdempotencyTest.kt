@@ -37,6 +37,7 @@ class InvoiceIdempotencyTest {
     private lateinit var userQuotaDao: UserQuotaDao
     private lateinit var repository: InvoiceRepository
     private lateinit var quotaGate: QuotaGate
+    private lateinit var businessContext: com.aktarjabed.inbusiness.domain.context.BusinessContext
 
     private val userId = "test-user-id"
     private val businessId = "test-business-id"
@@ -60,7 +61,11 @@ class InvoiceIdempotencyTest {
 
         quotaGate = QuotaGate(userQuotaDao, mockDeviceClassifier, mockClock, context)
 
-        repository = InvoiceRepository(database, invoiceDao, database.productDao(), quotaGate)
+        businessContext = mock(com.aktarjabed.inbusiness.domain.context.BusinessContext::class.java)
+        `when`(businessContext.activeBusinessId).thenReturn(kotlinx.coroutines.flow.flowOf(businessId))
+        `when`(businessContext.currentUserId).thenReturn(kotlinx.coroutines.flow.flowOf(userId))
+
+        repository = InvoiceRepository(database, invoiceDao, database.productDao(), quotaGate, businessContext)
 
         runBlocking {
             userQuotaDao.insertOrReplace(UserQuotaEntity(
@@ -88,12 +93,14 @@ class InvoiceIdempotencyTest {
 
         // First attempt creates the invoice
         val firstResult = repository.createInvoice(
-            userId = userId,
-            businessId = businessId,
+            sellerName = "Seller",
+            sellerAddress = "Address",
+            sellerGSTIN = null,
             customerName = "First Customer",
             customerGSTIN = "",
             buyerAddress = "",
             supplyType = SupplyType.INTRA_STATE,
+            subtotal = 100.0,
             totalAmount = 100.0,
             taxAmount = 0.0,
             totalCgst = 0.0,
@@ -109,12 +116,14 @@ class InvoiceIdempotencyTest {
 
         // Second attempt with the same idempotency key should return success but not create a duplicate
         val secondResult = repository.createInvoice(
-            userId = userId,
-            businessId = businessId,
+            sellerName = "Seller",
+            sellerAddress = "Address",
+            sellerGSTIN = null,
             customerName = "Second Customer", // Different data, but same key
             customerGSTIN = "",
             buyerAddress = "",
             supplyType = SupplyType.INTRA_STATE,
+            subtotal = 200.0,
             totalAmount = 200.0,
             taxAmount = 0.0,
             totalCgst = 0.0,
@@ -123,7 +132,26 @@ class InvoiceIdempotencyTest {
             items = emptyList(),
             idempotencyKey = idempotencyKey
         )
-        assertTrue(secondResult is InvoiceCreationResult.IdempotentReplay)
+        assertTrue(secondResult is InvoiceCreationResult.InvalidRequest)
+
+        val thirdResult = repository.createInvoice(
+            sellerName = "Seller",
+            sellerAddress = "Address",
+            sellerGSTIN = null,
+            customerName = "First Customer", // Identical to first payload
+            customerGSTIN = "",
+            buyerAddress = "",
+            supplyType = SupplyType.INTRA_STATE,
+            subtotal = 100.0,
+            totalAmount = 100.0,
+            taxAmount = 0.0,
+            totalCgst = 0.0,
+            totalSgst = 0.0,
+            totalIgst = 0.0,
+            items = emptyList(),
+            idempotencyKey = idempotencyKey
+        )
+        assertTrue(thirdResult is InvoiceCreationResult.IdempotentReplay)
 
         val finalInvoices = invoiceDao.getAllInvoicesOnce(businessId)
         assertEquals(1, finalInvoices.size) // Still only 1 invoice
@@ -147,8 +175,8 @@ class InvoiceIdempotencyTest {
         )
 
         val result = repository.createInvoice(
-            userId = userId, businessId = businessId, customerName = "Test Cust", customerGSTIN = null, buyerAddress = "",
-            supplyType = SupplyType.INTRA_STATE, totalAmount = 1500.0, taxAmount = 0.0, totalCgst = 0.0, totalSgst = 0.0, totalIgst = 0.0,
+            sellerName = "Seller", sellerAddress = "Address", sellerGSTIN = null, customerName = "Test Cust", customerGSTIN = null, buyerAddress = "",
+            supplyType = SupplyType.INTRA_STATE, subtotal = 1500.0, totalAmount = 1500.0, taxAmount = 0.0, totalCgst = 0.0, totalSgst = 0.0, totalIgst = 0.0,
             items = items
         )
 
