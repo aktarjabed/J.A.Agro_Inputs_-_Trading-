@@ -34,5 +34,6 @@ data class Product(
     val pricePerUnit: Double,
     val availableStock: Double,
     val batchNumber: String = "",
-    val isWholesaleOnly: Boolean = false
+    val isWholesaleOnly: Boolean = false,
+    val gstPercentage: Double = 0.0
 )

@@ -24,6 +24,16 @@ interface InvoiceDao {
     @Query("SELECT * FROM invoice_items WHERE invoiceId = :invoiceId AND invoiceId IN (SELECT id FROM invoices WHERE businessId = :businessId)")
     suspend fun getInvoiceItems(invoiceId: String, businessId: String): List<InvoiceItem>
 
+    @Query("""
+        SELECT i.*
+        FROM invoice_items i
+        INNER JOIN invoices inv ON i.invoiceId = inv.id
+        WHERE inv.businessId = :businessId
+        GROUP BY i.description
+        ORDER BY inv.createdAt DESC
+    """)
+    fun getHistoricalInvoiceItems(businessId: String): Flow<List<InvoiceItem>>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertInvoice(invoice: Invoice)
 

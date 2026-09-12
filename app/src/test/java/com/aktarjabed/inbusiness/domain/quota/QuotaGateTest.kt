@@ -59,6 +59,14 @@ class QuotaGateTest {
                 quotas[userId] = q.copy(monthlyUsed = 0, lastMonthlyResetEpochDay = monthStart)
             }
         }
+
+        override suspend fun getQuotaStatus(userId: String, dailyCap: Int, monthlyCap: Int): String? {
+            val q = quotas[userId] ?: return "AVAILABLE"
+            if (q.monthlyUsed >= monthlyCap && q.dailyUsed >= dailyCap) return "BOTH_EXCEEDED"
+            if (q.monthlyUsed >= monthlyCap) return "MONTHLY_EXCEEDED"
+            if (q.dailyUsed >= dailyCap) return "DAILY_EXCEEDED"
+            return "AVAILABLE"
+        }
     }
 
     class TestSystemClock : SystemClock() {
