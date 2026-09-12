@@ -13,6 +13,7 @@ import com.aktarjabed.inbusiness.domain.quota.QuotaVerdict
 import com.aktarjabed.inbusiness.domain.context.BusinessContext
 import com.aktarjabed.inbusiness.domain.invoice.CalculateInvoiceTotalsUseCase
 import com.aktarjabed.inbusiness.domain.invoice.GstCalculator
+import com.aktarjabed.inbusiness.domain.invoice.InvoiceCalculationResult
 import com.aktarjabed.inbusiness.domain.invoice.InvoiceCreationResult
 import com.aktarjabed.inbusiness.domain.invoice.SupplyType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -49,6 +50,9 @@ class InvoiceViewModel @Inject constructor(
     // Items state
     private val _invoiceItems = MutableStateFlow<List<InvoiceItemInput>>(emptyList())
     val invoiceItems = _invoiceItems.asStateFlow()
+
+    private val _calculationResult = MutableStateFlow<InvoiceCalculationResult?>(null)
+    val calculationResult: StateFlow<InvoiceCalculationResult?> = _calculationResult.asStateFlow()
 
     // Products for dropdown
     private val _products = MutableStateFlow<List<Product>>(emptyList())
@@ -154,16 +158,14 @@ class InvoiceViewModel @Inject constructor(
 
     private fun recalculateItems() {
         val currentSupplyType = supplyType.value
-        if (currentSupplyType == SupplyType.UNKNOWN) return
-
-        val updatedItems = _invoiceItems.value.map { input ->
-            val taxResult = GstCalculator.calculateItemTaxes(quantity = input.quantity, unitPrice = input.pricePerUnit, gstPercentage = input.gstPercentage, supplyType = currentSupplyType)
-            input.copy(taxResult = taxResult)
+        if (currentSupplyType == SupplyType.UNKNOWN) {
+            _calculationResult.value = null
+            grandTotal.value = 0.0
+            return
         }
-        _invoiceItems.value = updatedItems
 
         try {
-            val rawItems = updatedItems.map { input ->
+            val rawItems = _invoiceItems.value.map { input ->
                 InvoiceItem(
                     description = input.description,
                     quantity = input.quantity,
@@ -174,16 +176,19 @@ class InvoiceViewModel @Inject constructor(
                 )
             }
             if (rawItems.isNotEmpty()) {
-                val calculationResult = calculateInvoiceTotalsUseCase(
+                val calcResult = calculateInvoiceTotalsUseCase(
                     items = rawItems,
                     supplyType = currentSupplyType,
                     amountPaid = amountPaid.value
                 )
-                grandTotal.value = calculationResult.totalAmount
+                _calculationResult.value = calcResult
+                grandTotal.value = calcResult.totalAmount
             } else {
+                _calculationResult.value = null
                 grandTotal.value = 0.0
             }
         } catch (e: Exception) {
+            _calculationResult.value = null
             grandTotal.value = 0.0
         }
     }
@@ -283,8 +288,7 @@ data class InvoiceItemInput(
     val pricePerUnit: Double,
     val gstPercentage: Double,
     val unitType: String = "",
-    val productId: Long? = null, // null for ad-hoc
-    val taxResult: GstCalculator.ItemTaxResult? = null
+    val productId: Long? = null // null for ad-hoc
 ) {
     val isAdHoc: Boolean get() = productId == null
 }

@@ -35,6 +35,7 @@ fun InvoiceScreen(
     val buyerAddress by viewModel.buyerAddress.collectAsState()
     val supplyType by viewModel.supplyType.collectAsState()
     val items by viewModel.invoiceItems.collectAsState()
+    val calculationResult by viewModel.calculationResult.collectAsState()
     val products by viewModel.products.collectAsState()
     val grandTotal by viewModel.grandTotal.collectAsState()
 
@@ -159,13 +160,16 @@ fun InvoiceScreen(
                                 Text("No items added. Click + to add.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         } else {
+                            val processedItems = calculationResult?.processedItems ?: emptyList()
                             LazyColumn(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                itemsIndexed(items) { index, item ->
+                                itemsIndexed(items) { index, itemInput ->
+                                    val processedItem = processedItems.getOrNull(index)
                                     InvoiceItemCard(
-                                        item = item,
+                                        itemInput = itemInput,
+                                        processedItem = processedItem,
                                         onRemove = { viewModel.removeItem(index) }
                                     )
                                 }
@@ -335,7 +339,7 @@ fun SegmentedSupplyTypeButton(
 }
 
 @Composable
-fun InvoiceItemCard(item: InvoiceItemInput, onRemove: () -> Unit) {
+fun InvoiceItemCard(itemInput: InvoiceItemInput, processedItem: com.aktarjabed.inbusiness.data.entities.InvoiceItem?, onRemove: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -344,21 +348,21 @@ fun InvoiceItemCard(item: InvoiceItemInput, onRemove: () -> Unit) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(item.description, fontWeight = FontWeight.Bold)
-                    if (item.isAdHoc) {
+                    Text(itemInput.description, fontWeight = FontWeight.Bold)
+                    if (itemInput.isAdHoc) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.small) {
                             Text("Ad-hoc", modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
-                Text("Qty: ${item.quantity} x ₹${item.pricePerUnit}", style = MaterialTheme.typography.bodySmall)
-                val taxStr = String.format(java.util.Locale.US, "%.2f", item.taxResult?.taxAmount ?: 0.0)
-                Text("GST: ${item.gstPercentage}% (₹$taxStr)", style = MaterialTheme.typography.bodySmall)
+                Text("Qty: ${itemInput.quantity} x ₹${itemInput.pricePerUnit}", style = MaterialTheme.typography.bodySmall)
+                val taxStr = String.format(java.util.Locale.US, "%.2f", processedItem?.taxAmount ?: 0.0)
+                Text("GST: ${itemInput.gstPercentage}% (₹$taxStr)", style = MaterialTheme.typography.bodySmall)
             }
 
             Column(horizontalAlignment = Alignment.End) {
-                val totStr = String.format(java.util.Locale.US, "%.2f", item.taxResult?.totalAmount ?: 0.0)
+                val totStr = String.format(java.util.Locale.US, "%.2f", processedItem?.totalAmount ?: 0.0)
                 Text("₹$totStr", fontWeight = FontWeight.Bold)
                 IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
                     Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
