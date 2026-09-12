@@ -12,11 +12,36 @@ import com.aktarjabed.inbusiness.presentation.screens.inventory.InventoryListScr
 import com.aktarjabed.inbusiness.presentation.screens.inventory.ProductEntryScreen
 import com.aktarjabed.inbusiness.presentation.screens.invoice.InvoiceScreen
 import com.aktarjabed.inbusiness.presentation.screens.invoice_preview.InvoicePreviewScreen
+import com.aktarjabed.inbusiness.presentation.screens.SplashScreen
+import com.aktarjabed.inbusiness.presentation.screens.SetupScreen
 
 @Composable
 fun InBusinessNavGraph() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "dashboard") {
+    NavHost(navController = navController, startDestination = "splash") {
+        composable("splash") {
+            SplashScreen(
+                onNavigateToDashboard = {
+                    navController.navigate("dashboard") {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                },
+                onNavigateToSetup = {
+                    navController.navigate("setup") {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable("setup") {
+            SetupScreen(
+                onSetupComplete = {
+                    navController.navigate("dashboard") {
+                        popUpTo("setup") { inclusive = true }
+                    }
+                }
+            )
+        }
         composable("dashboard") {
             DashboardScreen(
                 onNavigateToCalculator = { navController.navigate("calculator") },
