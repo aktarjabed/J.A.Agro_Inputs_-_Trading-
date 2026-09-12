@@ -69,6 +69,7 @@ class ProductViewModel @Inject constructor(
                 val product = productRepository.getProductById(productId)
                 _editingProduct.value = product
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 if (e is CancellationException) throw e
                 // Handle error softly
             }
@@ -88,7 +89,8 @@ class ProductViewModel @Inject constructor(
         pricePerUnit: Double,
         availableStock: Double,
         batchNumber: String?,
-        isWholesaleOnly: Boolean
+        isWholesaleOnly: Boolean,
+        gstPercentage: Double
     ) {
         viewModelScope.launch {
             _saveState.value = SaveProductState.Loading
@@ -102,10 +104,12 @@ class ProductViewModel @Inject constructor(
                     pricePerUnit = pricePerUnit,
                     availableStock = availableStock,
                     batchNumber = batchNumber,
-                    isWholesaleOnly = isWholesaleOnly
+                    isWholesaleOnly = isWholesaleOnly,
+                    gstPercentage = gstPercentage
                 )
                 _saveState.value = SaveProductState.Success
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 if (e is CancellationException) throw e
                 _saveState.value = SaveProductState.Error(e.message ?: "Failed to save product")
             }
@@ -117,6 +121,7 @@ class ProductViewModel @Inject constructor(
             try {
                 productRepository.deleteProduct(productId)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 if (e is CancellationException) throw e
             }
         }

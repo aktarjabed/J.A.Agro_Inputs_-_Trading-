@@ -51,6 +51,7 @@ class InvoicePreviewViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e("InvoicePreviewViewModel", "Failed to load invoice", e)
                 _uiState.value = InvoicePreviewUiState.Error(e.message ?: "Unknown error occurred")
             }

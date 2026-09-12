@@ -40,6 +40,7 @@ fun InvoiceScreen(
     val grandTotal by viewModel.grandTotal.collectAsState()
 
     var showAddItemDialog by remember { mutableStateOf(false) }
+    var editingItemInput by remember { mutableStateOf<InvoiceItemInput?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.checkQuotaAndPrepare()
@@ -67,7 +68,8 @@ fun InvoiceScreen(
         },
         floatingActionButton = {
             if (uiState is InvoiceUiState.CreateAllowed) {
-                FloatingActionButton(onClick = { showAddItemDialog = true }) {
+                FloatingActionButton(onClick = { editingItemInput = null
+                        showAddItemDialog = true }) {
                     Icon(Icons.Default.Add, "Add Item")
                 }
             }
@@ -170,7 +172,12 @@ fun InvoiceScreen(
                                     InvoiceItemCard(
                                         itemInput = itemInput,
                                         processedItem = processedItem,
-                                        onRemove = { viewModel.removeItem(index) }
+                                        onEdit = {
+                                        viewModel.setEditingItemIndex(index)
+                                        editingItemInput = itemInput
+                                        showAddItemDialog = true
+                                    },
+                                    onRemove = { viewModel.removeItem(index) }
                                     )
                                 }
                             }
@@ -303,10 +310,16 @@ fun InvoiceScreen(
     if (showAddItemDialog) {
         AddItemDialog(
             suggestions = productSuggestions,
-            onDismiss = { showAddItemDialog = false },
+            initialItem = editingItemInput,
+            onDismiss = {
+                showAddItemDialog = false
+                viewModel.setEditingItemIndex(null)
+                editingItemInput = null
+            },
             onAdd = { newItem ->
                 viewModel.addItem(newItem)
                 showAddItemDialog = false
+                editingItemInput = null
             }
         )
     }
@@ -339,7 +352,7 @@ fun SegmentedSupplyTypeButton(
 }
 
 @Composable
-fun InvoiceItemCard(itemInput: InvoiceItemInput, processedItem: com.aktarjabed.inbusiness.data.entities.InvoiceItem?, onRemove: () -> Unit) {
+fun InvoiceItemCard(itemInput: InvoiceItemInput, processedItem: com.aktarjabed.inbusiness.data.entities.InvoiceItem?, onEdit: () -> Unit, onRemove: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -364,8 +377,14 @@ fun InvoiceItemCard(itemInput: InvoiceItemInput, processedItem: com.aktarjabed.i
             Column(horizontalAlignment = Alignment.End) {
                 val totStr = String.format(java.util.Locale.US, "%.2f", processedItem?.totalAmount ?: 0.0)
                 Text("₹$totStr", fontWeight = FontWeight.Bold)
-                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                Row {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
@@ -376,15 +395,16 @@ fun InvoiceItemCard(itemInput: InvoiceItemInput, processedItem: com.aktarjabed.i
 @Composable
 fun AddItemDialog(
     suggestions: List<com.aktarjabed.inbusiness.domain.usecase.ProductSuggestion>,
+    initialItem: InvoiceItemInput?,
     onDismiss: () -> Unit,
     onAdd: (InvoiceItemInput) -> Unit
 ) {
-    var selectedProductId by remember { mutableStateOf<Long?>(null) }
-    var description by remember { mutableStateOf("") }
-    var quantity by remember { mutableStateOf("") }
-    var unitType by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    var gstRate by remember { mutableStateOf("") }
+    var selectedProductId by remember { mutableStateOf<Long?>(initialItem?.productId) }
+    var description by remember { mutableStateOf(initialItem?.description ?: "") }
+    var quantity by remember { mutableStateOf(initialItem?.quantity?.let { if (it > 0) it.toString() else "" } ?: "") }
+    var unitType by remember { mutableStateOf(initialItem?.unitType ?: "") }
+    var price by remember { mutableStateOf(initialItem?.pricePerUnit?.let { if (it > 0) it.toString() else "" } ?: "") }
+    var gstRate by remember { mutableStateOf(initialItem?.gstPercentage?.let { if (it > 0) it.toString() else "" } ?: "") }
 
     var expanded by remember { mutableStateOf(false) }
 
@@ -392,7 +412,7 @@ fun AddItemDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Line Item") },
+        title = { Text(if (initialItem == null) "Add Line Item" else "Edit Line Item") },
         text = {
             Column {
                 ExposedDropdownMenuBox(
@@ -507,7 +527,7 @@ fun AddItemDialog(
                 },
                 enabled = isInputValid
             ) {
-                Text("Add")
+                Text(if (initialItem == null) "Add" else "Update")
             }
         },
         dismissButton = {

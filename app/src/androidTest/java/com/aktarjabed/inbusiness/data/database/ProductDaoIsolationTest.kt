@@ -105,7 +105,7 @@ class ProductDaoIsolationTest {
             id = productId,
             businessId = "biz-2", // Wrong business ID
             name = "Hacked",
-            brand = "B", category = "C", unitType = "U", pricePerUnit = 10.0, availableStock = 50.0, batchNumber = "", isWholesaleOnly = false
+            brand = "B", category = "C", unitType = "U", pricePerUnit = 10.0, availableStock = 50.0, batchNumber = "", isWholesaleOnly = false, gstPercentage = 0.0
         )
 
         assertEquals(0, affectedRows) // Update should fail

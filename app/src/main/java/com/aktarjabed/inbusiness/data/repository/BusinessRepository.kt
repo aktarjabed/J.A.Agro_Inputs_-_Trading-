@@ -20,27 +20,52 @@ class BusinessRepository @Inject constructor(private val dao: BusinessDao) {
     fun getAllBusinessData(): Flow<List<BusinessData>> = dao.getAllBusinessData()
 
     suspend fun getBusinessDataById(id: String): BusinessData? =
-        runCatching { dao.getBusinessDataById(id) }
+        try {
+            Result.success(dao.getBusinessDataById(id))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Result.failure(e)
+        }
             .onFailure { Log.e(TAG, "getBusinessDataById: \${it.message}", it) }
             .getOrNull()
 
     suspend fun saveBusinessData(data: BusinessData) =
-        runCatching { dao.insertBusinessData(data) }
+        try {
+            Result.success(dao.insertBusinessData(data))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Result.failure(e)
+        }
             .onFailure { Log.e(TAG, "saveBusinessData: \${it.message}", it) }
 
     suspend fun deleteBusinessData(data: BusinessData) =
-        runCatching { dao.deleteBusinessData(data) }
+        try {
+            Result.success(dao.deleteBusinessData(data))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Result.failure(e)
+        }
             .onFailure { Log.e(TAG, "deleteBusinessData: \${it.message}", it) }
 
     fun getCalculationResults(businessDataId: String): Flow<List<CalculationResult>> =
         dao.getCalculationResults(businessDataId)
 
     suspend fun saveCalculationResult(result: CalculationResult) =
-        runCatching { dao.insertCalculationResult(result) }
+        try {
+            Result.success(dao.insertCalculationResult(result))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Result.failure(e)
+        }
             .onFailure { Log.e(TAG, "saveCalculationResult: \${it.message}", it) }
 
     suspend fun deleteAllCalculationResults(businessId: String) =
-        runCatching { dao.deleteAllCalculationResults(businessId) }
+        try {
+            Result.success(dao.deleteAllCalculationResults(businessId))
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Result.failure(e)
+        }
             .onFailure { Log.e(TAG, "deleteAllCalculationResults: \${it.message}", it) }
 
     /* ============== Business AI-safe calculator ============== */
@@ -117,6 +142,7 @@ class BusinessRepository @Inject constructor(private val dao: BusinessDao) {
                 profitProjection = profitProjection
             )
         } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e(TAG, "Calculation error: \${e.message}", e)
             FinancialMetrics() // safe fallback
         }
