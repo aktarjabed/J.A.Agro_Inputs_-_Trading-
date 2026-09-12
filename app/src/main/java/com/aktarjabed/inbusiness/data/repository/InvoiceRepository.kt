@@ -54,6 +54,10 @@ class InvoiceRepository @Inject constructor(
         return invoiceDao.getInvoiceItems(invoiceId, businessId)
     }
 
+    fun getHistoricalInvoiceItems(businessId: String): Flow<List<InvoiceItem>> {
+        return invoiceDao.getHistoricalInvoiceItems(businessId)
+    }
+
     suspend fun updateInvoicePayment(invoiceId: String, amountPaid: Double, balanceDue: Double, paymentMethod: String): Boolean {
         val businessId = businessContext.activeBusinessId.first()
         return invoiceDao.updateInvoicePayment(invoiceId, businessId, amountPaid, balanceDue, paymentMethod) > 0

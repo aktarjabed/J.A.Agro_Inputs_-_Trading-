@@ -42,4 +42,16 @@ interface UserQuotaDao {
         WHERE userId = :userId
     """)
     suspend fun resetMonthly(userId: String, monthStart: Long, timestamp: Long = System.currentTimeMillis())
+
+    @Query("""
+        SELECT CASE
+            WHEN monthlyUsed >= :monthlyCap AND dailyUsed >= :dailyCap THEN 'BOTH_EXCEEDED'
+            WHEN monthlyUsed >= :monthlyCap THEN 'MONTHLY_EXCEEDED'
+            WHEN dailyUsed >= :dailyCap THEN 'DAILY_EXCEEDED'
+            ELSE 'AVAILABLE'
+        END
+        FROM user_quota
+        WHERE userId = :userId
+    """)
+    suspend fun getQuotaStatus(userId: String, dailyCap: Int, monthlyCap: Int): String?
 }

@@ -8,11 +8,13 @@ import com.aktarjabed.inbusiness.data.entities.Product
 import com.aktarjabed.inbusiness.data.repository.ProductRepository
 import com.aktarjabed.inbusiness.data.repository.BusinessRepository
 import com.aktarjabed.inbusiness.domain.usecase.CreateInvoiceUseCase
+import com.aktarjabed.inbusiness.domain.usecase.GetProductSuggestionsUseCase
+import com.aktarjabed.inbusiness.domain.usecase.ProductSuggestion
 import com.aktarjabed.inbusiness.domain.quota.QuotaGate
 import com.aktarjabed.inbusiness.domain.quota.QuotaVerdict
 import com.aktarjabed.inbusiness.domain.context.BusinessContext
 import com.aktarjabed.inbusiness.domain.invoice.CalculateInvoiceTotalsUseCase
-import com.aktarjabed.inbusiness.domain.invoice.GstCalculator
+import com.aktarjabed.inbusiness.domain.usecase.DetermineSupplyTypeUseCase
 import com.aktarjabed.inbusiness.domain.invoice.InvoiceCalculationResult
 import com.aktarjabed.inbusiness.domain.invoice.InvoiceCreationResult
 import com.aktarjabed.inbusiness.domain.invoice.SupplyType
@@ -29,9 +31,11 @@ class InvoiceViewModel @Inject constructor(
     private val quotaGate: QuotaGate,
     private val createInvoiceUseCase: CreateInvoiceUseCase,
     private val calculateInvoiceTotalsUseCase: CalculateInvoiceTotalsUseCase,
+    private val determineSupplyTypeUseCase: DetermineSupplyTypeUseCase,
     private val businessContext: BusinessContext,
     private val productRepository: ProductRepository,
-    private val businessRepository: BusinessRepository
+    private val businessRepository: BusinessRepository,
+    private val getProductSuggestionsUseCase: GetProductSuggestionsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<InvoiceUiState>(InvoiceUiState.Initial)
@@ -55,8 +59,8 @@ class InvoiceViewModel @Inject constructor(
     val calculationResult: StateFlow<InvoiceCalculationResult?> = _calculationResult.asStateFlow()
 
     // Products for dropdown
-    private val _products = MutableStateFlow<List<Product>>(emptyList())
-    val products = _products.asStateFlow()
+    private val _productSuggestions = MutableStateFlow<List<ProductSuggestion>>(emptyList())
+    val productSuggestions = _productSuggestions.asStateFlow()
 
     val amountPaid = MutableStateFlow(0.0)
     val paymentMethod = MutableStateFlow("NONE")
@@ -66,10 +70,10 @@ class InvoiceViewModel @Inject constructor(
     private var currentIdempotencyKey: String? = null
 
     init {
-        // Load products for dropdown
+        // Load product suggestions for autocomplete
         viewModelScope.launch {
-            productRepository.getAllProducts().collect { productList ->
-                _products.value = productList
+            getProductSuggestionsUseCase().collect { suggestionsList ->
+                _productSuggestions.value = suggestionsList
             }
         }
 
@@ -87,7 +91,7 @@ class InvoiceViewModel @Inject constructor(
 
                     // Re-evaluate supply type if customer GSTIN is already provided
                     if (customerGSTIN.value.isNotBlank() && sellerGstin.value.isNotBlank()) {
-                        supplyType.value = GstCalculator.determineSupplyType(sellerGstin.value, customerGSTIN.value)
+                        supplyType.value = determineSupplyTypeUseCase(sellerGstin.value, customerGSTIN.value)
                     }
                 }
             } catch (e: Exception) {
@@ -132,7 +136,7 @@ class InvoiceViewModel @Inject constructor(
 
         // Auto-detect supply type
         if (sellerGstin.value.isNotBlank() && gstin.isNotBlank()) {
-            supplyType.value = GstCalculator.determineSupplyType(sellerGstin.value, gstin)
+            supplyType.value = determineSupplyTypeUseCase(sellerGstin.value, gstin)
         }
     }
 

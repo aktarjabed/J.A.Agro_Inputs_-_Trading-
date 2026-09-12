@@ -36,7 +36,7 @@ fun InvoiceScreen(
     val supplyType by viewModel.supplyType.collectAsState()
     val items by viewModel.invoiceItems.collectAsState()
     val calculationResult by viewModel.calculationResult.collectAsState()
-    val products by viewModel.products.collectAsState()
+    val productSuggestions by viewModel.productSuggestions.collectAsState()
     val grandTotal by viewModel.grandTotal.collectAsState()
 
     var showAddItemDialog by remember { mutableStateOf(false) }
@@ -302,7 +302,7 @@ fun InvoiceScreen(
 
     if (showAddItemDialog) {
         AddItemDialog(
-            products = products,
+            suggestions = productSuggestions,
             onDismiss = { showAddItemDialog = false },
             onAdd = { newItem ->
                 viewModel.addItem(newItem)
@@ -375,12 +375,11 @@ fun InvoiceItemCard(itemInput: InvoiceItemInput, processedItem: com.aktarjabed.i
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddItemDialog(
-    products: List<com.aktarjabed.inbusiness.data.entities.Product>,
+    suggestions: List<com.aktarjabed.inbusiness.domain.usecase.ProductSuggestion>,
     onDismiss: () -> Unit,
     onAdd: (InvoiceItemInput) -> Unit
 ) {
-    var isAdHoc by remember { mutableStateOf(false) }
-    var selectedProduct by remember { mutableStateOf<com.aktarjabed.inbusiness.data.entities.Product?>(null) }
+    var selectedProductId by remember { mutableStateOf<Long?>(null) }
     var description by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var unitType by remember { mutableStateOf("") }
@@ -396,38 +395,48 @@ fun AddItemDialog(
         title = { Text("Add Line Item") },
         text = {
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = isAdHoc, onCheckedChange = { isAdHoc = it; if (it) selectedProduct = null })
-                    Text("Ad-hoc Item (No stock deduction)")
-                }
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = {
+                            description = it
+                            selectedProductId = null // User manually typing unlinks from catalog
+                            expanded = true // Show suggestions as they type
+                        },
+                        label = { Text("Item Description (Type to search)") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        isError = description.isBlank()
+                    )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    val filteredSuggestions = suggestions.filter {
+                        it.description.contains(description, ignoreCase = true)
+                    }
 
-                if (!isAdHoc) {
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded }
-                    ) {
-                        OutlinedTextField(
-                            value = selectedProduct?.name ?: "",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Select Product") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.menuAnchor().fillMaxWidth()
-                        )
+                    if (filteredSuggestions.isNotEmpty()) {
                         ExposedDropdownMenu(
                             expanded = expanded,
                             onDismissRequest = { expanded = false }
                         ) {
-                            products.forEach { product ->
+                            filteredSuggestions.forEach { suggestion ->
                                 DropdownMenuItem(
-                                    text = { Text("${product.name} (Stock: ${product.availableStock})") },
+                                    text = {
+                                        val sourceText = if (suggestion.product != null) {
+                                            "${suggestion.description} (Catalog - Stock: ${suggestion.product.availableStock})"
+                                        } else {
+                                            "${suggestion.description} (History)"
+                                        }
+                                        Text(sourceText)
+                                    },
                                     onClick = {
-                                        selectedProduct = product
-                                        description = product.name
-                                        unitType = product.unitType
-                                        price = product.pricePerUnit.toString()
+                                        description = suggestion.description
+                                        unitType = suggestion.unitType
+                                        price = suggestion.pricePerUnit.toString()
+                                        gstRate = suggestion.gstPercentage.toString()
+                                        selectedProductId = suggestion.product?.id
                                         expanded = false
                                     }
                                 )
@@ -435,16 +444,6 @@ fun AddItemDialog(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Item Description") },
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = description.isBlank()
-                )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -501,7 +500,7 @@ fun AddItemDialog(
                                 pricePerUnit = p,
                                 unitType = unitType.trim(),
                                 gstPercentage = g,
-                                productId = if (isAdHoc) null else selectedProduct?.id
+                                productId = selectedProductId
                             )
                         )
                     }

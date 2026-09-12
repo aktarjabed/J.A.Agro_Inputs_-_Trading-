@@ -59,23 +59,23 @@ class QuotaGate @Inject constructor(
                 val freshEntity = dao.getQuota(userId)!!
                 QuotaVerdict.Allowed(dailyCap - freshEntity.dailyUsed)
             } else {
-                // If 0 rows updated, figure out which cap was hit
-                val freshEntity = dao.getQuota(userId) ?: entity
-                if (freshEntity.monthlyUsed - monthlyCap >= 0) {
-                    Log.d(TAG, "Monthly cap hit (concurrent/SQL): ${freshEntity.monthlyUsed}/$monthlyCap")
+                val status = dao.getQuotaStatus(userId, dailyCap, monthlyCap)
+                if (status == "MONTHLY_EXCEEDED" || status == "BOTH_EXCEEDED") {
+                    Log.d(TAG, "Monthly cap hit (concurrent/SQL): monthly cap $monthlyCap")
                     QuotaVerdict.MonthlyCap
                 } else {
-                    Log.d(TAG, "Daily cap hit (concurrent/SQL): ${freshEntity.dailyUsed}/$dailyCap")
+                    Log.d(TAG, "Daily cap hit (concurrent/SQL): daily cap $dailyCap")
                     QuotaVerdict.DailyCap(dailyCap)
                 }
             }
         } else {
-            val peekEntity = dao.getQuota(userId) ?: entity
-            if (peekEntity.monthlyUsed - monthlyCap >= 0) {
+            val status = dao.getQuotaStatus(userId, dailyCap, monthlyCap)
+            if (status == "MONTHLY_EXCEEDED" || status == "BOTH_EXCEEDED") {
                 QuotaVerdict.MonthlyCap
-            } else if (peekEntity.dailyUsed - dailyCap >= 0) {
+            } else if (status == "DAILY_EXCEEDED") {
                 QuotaVerdict.DailyCap(dailyCap)
             } else {
+                val peekEntity = dao.getQuota(userId) ?: entity
                 QuotaVerdict.Allowed(dailyCap - peekEntity.dailyUsed)
             }
         }
