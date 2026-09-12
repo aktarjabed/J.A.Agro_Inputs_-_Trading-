@@ -23,23 +23,29 @@ class QuotaGate @Inject constructor(
 
     suspend fun assertQuota(userId: String, consume: Boolean = true): QuotaVerdict = withContext(Dispatchers.IO) {
         val today = clock.todayEpochDay()
-        val entity = dao.getQuota(userId) ?: createFirstQuota(userId, today)
+        var entity = dao.getQuota(userId) ?: createFirstQuota(userId, today)
 
         // Roll daily
+        var needsUpdate = false
         if (entity.lastResetEpochDay != today) {
             dao.resetDaily(userId, today)
-            return@withContext assertQuota(userId, consume)
+            needsUpdate = true
         }
 
         // Roll monthly
         val monthStart = clock.monthStartEpochDay()
         if (entity.lastMonthlyResetEpochDay != monthStart) {
             dao.resetMonthly(userId, monthStart)
-            return@withContext assertQuota(userId, consume)
+            needsUpdate = true
+        }
+
+        if (needsUpdate) {
+            entity = dao.getQuota(userId) ?: entity
         }
 
         // Check expiry
-        if (entity.freeExpiryEpochDay != null && today > entity.freeExpiryEpochDay) {
+        val freeExpiry = entity.freeExpiryEpochDay
+        if (freeExpiry != null && today > freeExpiry) {
             return@withContext QuotaVerdict.FreeExpired
         }
 
@@ -50,26 +56,27 @@ class QuotaGate @Inject constructor(
         if (consume) {
             val rows = dao.incrementUsage(userId, dailyCap, monthlyCap)
             if (rows > 0) {
-                QuotaVerdict.Allowed(dailyCap - entity.dailyUsed - 1)
+                val freshEntity = dao.getQuota(userId)!!
+                QuotaVerdict.Allowed(dailyCap - freshEntity.dailyUsed)
             } else {
                 // If 0 rows updated, figure out which cap was hit
-                if (entity.monthlyUsed >= monthlyCap) {
-                    Log.d(TAG, "Monthly cap hit (concurrent/SQL): ${entity.monthlyUsed}/$monthlyCap")
+                val freshEntity = dao.getQuota(userId) ?: entity
+                if (freshEntity.monthlyUsed - monthlyCap >= 0) {
+                    Log.d(TAG, "Monthly cap hit (concurrent/SQL): ${freshEntity.monthlyUsed}/$monthlyCap")
                     QuotaVerdict.MonthlyCap
                 } else {
-                    Log.d(TAG, "Daily cap hit (concurrent/SQL): ${entity.dailyUsed}/$dailyCap")
+                    Log.d(TAG, "Daily cap hit (concurrent/SQL): ${freshEntity.dailyUsed}/$dailyCap")
                     QuotaVerdict.DailyCap(dailyCap)
                 }
             }
         } else {
-            if (entity.monthlyUsed >= monthlyCap) {
-                Log.d(TAG, "Monthly cap hit (peek): ${entity.monthlyUsed}/$monthlyCap")
+            val peekEntity = dao.getQuota(userId) ?: entity
+            if (peekEntity.monthlyUsed - monthlyCap >= 0) {
                 QuotaVerdict.MonthlyCap
-            } else if (entity.dailyUsed >= dailyCap) {
-                Log.d(TAG, "Daily cap hit (peek): ${entity.dailyUsed}/$dailyCap")
+            } else if (peekEntity.dailyUsed - dailyCap >= 0) {
                 QuotaVerdict.DailyCap(dailyCap)
             } else {
-                QuotaVerdict.Allowed(dailyCap - entity.dailyUsed)
+                QuotaVerdict.Allowed(dailyCap - peekEntity.dailyUsed)
             }
         }
     }
