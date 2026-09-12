@@ -35,9 +35,9 @@ class MigrationTest {
         db = helper.runMigrationsAndValidate(TEST_DB, 5, true, AppDatabase.MIGRATION_4_5)
 
         val cursor = db.query("SELECT * FROM invoices")
-        assert(cursor.moveToFirst())
+        org.junit.Assert.assertTrue(cursor.moveToFirst())
         val idempotencyKeyIndex = cursor.getColumnIndex("idempotencyKey")
-        assert(cursor.isNull(idempotencyKeyIndex))
+        org.junit.Assert.assertTrue(cursor.isNull(idempotencyKeyIndex))
         cursor.close()
     }
 
@@ -60,11 +60,11 @@ class MigrationTest {
         db = helper.runMigrationsAndValidate(TEST_DB, 8, true, AppDatabase.MIGRATION_7_8)
 
         val cursor = db.query("SELECT * FROM invoice_items WHERE id = 'item-1'")
-        assert(cursor.moveToFirst())
-        assert(cursor.getDouble(cursor.getColumnIndexOrThrow("pricePerUnit")) == 50.0)
-        assert(cursor.getDouble(cursor.getColumnIndexOrThrow("subTotal")) == 100.0)
-        assert(cursor.getString(cursor.getColumnIndexOrThrow("unitType")) == "")
-        assert(cursor.getDouble(cursor.getColumnIndexOrThrow("gstPercentage")) == 5.0)
+        org.junit.Assert.assertTrue(cursor.moveToFirst())
+        org.junit.Assert.assertEquals(50.0, cursor.getDouble(cursor.getColumnIndexOrThrow("pricePerUnit")), 0.001)
+        org.junit.Assert.assertEquals(100.0, cursor.getDouble(cursor.getColumnIndexOrThrow("subTotal")), 0.001)
+        org.junit.Assert.assertEquals("", cursor.getString(cursor.getColumnIndexOrThrow("unitType")))
+        org.junit.Assert.assertEquals(5.0, cursor.getDouble(cursor.getColumnIndexOrThrow("gstPercentage")), 0.001)
         cursor.close()
     }
 
@@ -82,18 +82,18 @@ class MigrationTest {
         db = helper.runMigrationsAndValidate(TEST_DB, 10, true, AppDatabase.MIGRATION_9_10)
 
         var invCursor = db.query("SELECT requestFingerprint, sellerName, sellerAddress, sellerGSTIN, subtotal FROM invoices WHERE id = 'inv-1'")
-        assert(invCursor.moveToFirst())
-        assert(invCursor.getString(invCursor.getColumnIndexOrThrow("sellerName")) == "")
-        assert(invCursor.getString(invCursor.getColumnIndexOrThrow("sellerAddress")) == "")
-        assert(invCursor.isNull(invCursor.getColumnIndexOrThrow("sellerGSTIN")))
-        assert(invCursor.getDouble(invCursor.getColumnIndexOrThrow("subtotal")) == 0.0)
+        org.junit.Assert.assertTrue(invCursor.moveToFirst())
+        org.junit.Assert.assertEquals("", invCursor.getString(invCursor.getColumnIndexOrThrow("sellerName")))
+        org.junit.Assert.assertEquals("", invCursor.getString(invCursor.getColumnIndexOrThrow("sellerAddress")))
+        org.junit.Assert.assertTrue(invCursor.isNull(invCursor.getColumnIndexOrThrow("sellerGSTIN")))
+        org.junit.Assert.assertEquals(0.0, invCursor.getDouble(invCursor.getColumnIndexOrThrow("subtotal")), 0.001)
         invCursor.close()
 
         db.close()
         db = helper.runMigrationsAndValidate(TEST_DB, 11, true, AppDatabase.MIGRATION_10_11)
 
         invCursor = db.query("SELECT * FROM invoices WHERE id = 'inv-1'")
-        assert(invCursor.moveToFirst())
+        org.junit.Assert.assertTrue(invCursor.moveToFirst())
         invCursor.close()
     }
 
@@ -115,15 +115,49 @@ class MigrationTest {
         db = helper.runMigrationsAndValidate(TEST_DB, 9, true, AppDatabase.MIGRATION_8_9)
 
         val invCursor = db.query("SELECT amountPaid, balanceDue, paymentMethod FROM invoices WHERE id = 'inv-1'")
-        assert(invCursor.moveToFirst())
-        assert(invCursor.getDouble(invCursor.getColumnIndexOrThrow("amountPaid")) == 0.0)
-        assert(invCursor.getDouble(invCursor.getColumnIndexOrThrow("balanceDue")) == 0.0)
-        assert(invCursor.getString(invCursor.getColumnIndexOrThrow("paymentMethod")) == "NONE")
+        org.junit.Assert.assertTrue(invCursor.moveToFirst())
+        org.junit.Assert.assertEquals(0.0, invCursor.getDouble(invCursor.getColumnIndexOrThrow("amountPaid")), 0.001)
+        org.junit.Assert.assertEquals(0.0, invCursor.getDouble(invCursor.getColumnIndexOrThrow("balanceDue")), 0.001)
+        org.junit.Assert.assertEquals("NONE", invCursor.getString(invCursor.getColumnIndexOrThrow("paymentMethod")))
         invCursor.close()
 
         val seqCursor = db.query("SELECT lastSequenceNumber FROM invoice_sequence WHERE businessId = 'biz-1'")
-        assert(seqCursor.moveToFirst())
-        assert(seqCursor.getInt(seqCursor.getColumnIndexOrThrow("lastSequenceNumber")) == 42)
+        org.junit.Assert.assertTrue(seqCursor.moveToFirst())
+        org.junit.Assert.assertEquals(42, seqCursor.getInt(seqCursor.getColumnIndexOrThrow("lastSequenceNumber")))
         seqCursor.close()
+    }
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate11To12() {
+        var db = helper.createDatabase(TEST_DB, 11)
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `products` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `businessId` TEXT NOT NULL,
+                `name` TEXT NOT NULL COLLATE NOCASE,
+                `brand` TEXT NOT NULL COLLATE NOCASE,
+                `category` TEXT NOT NULL COLLATE NOCASE,
+                `unitType` TEXT NOT NULL COLLATE NOCASE,
+                `pricePerUnit` REAL NOT NULL,
+                `availableStock` REAL NOT NULL,
+                `batchNumber` TEXT NOT NULL,
+                `isWholesaleOnly` INTEGER NOT NULL
+            )
+        """)
+
+        db.execSQL("""
+            INSERT INTO products (id, businessId, name, brand, category, unitType, pricePerUnit, availableStock, batchNumber, isWholesaleOnly)
+            VALUES (1, 'biz-1', 'Test Product', 'Brand', 'Category', 'Unit', 100.0, 10.0, 'Batch-1', 0)
+        """)
+        db.close()
+
+        db = helper.runMigrationsAndValidate(TEST_DB, 12, true, AppDatabase.MIGRATION_11_12)
+
+        val cursor = db.query("SELECT gstPercentage FROM products WHERE id = 1")
+        org.junit.Assert.assertTrue(cursor.moveToFirst())
+        org.junit.Assert.assertEquals(0.0, cursor.getDouble(cursor.getColumnIndexOrThrow("gstPercentage")), 0.001)
+        cursor.close()
     }
 }
