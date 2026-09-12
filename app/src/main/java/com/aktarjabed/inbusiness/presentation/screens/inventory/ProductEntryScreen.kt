@@ -42,6 +42,8 @@ fun ProductEntryScreen(
     var availableStockStr by remember { mutableStateOf("") }
     var batchNumber by remember { mutableStateOf("") }
     var isWholesaleOnly by remember { mutableStateOf(false) }
+    var gstPercentageStr by remember { mutableStateOf("") }
+    var gstError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(productId) {
         if (productId != null) {
@@ -61,6 +63,7 @@ fun ProductEntryScreen(
             availableStockStr = it.availableStock.toString()
             batchNumber = it.batchNumber
             isWholesaleOnly = it.isWholesaleOnly
+            gstPercentageStr = if (it.gstPercentage > 0.0) it.gstPercentage.toString() else ""
         }
     }
 
@@ -150,6 +153,7 @@ fun ProductEntryScreen(
                 )
             }
 
+
             OutlinedTextField(
                 value = batchNumber,
                 onValueChange = { batchNumber = it },
@@ -157,6 +161,29 @@ fun ProductEntryScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
+
+            OutlinedTextField(
+                value = gstPercentageStr,
+                onValueChange = {
+                    gstPercentageStr = it
+                    gstError = null
+                    val d = it.toDoubleOrNull()
+                    if (it.isNotBlank()) {
+                        if (d == null || !d.isFinite()) {
+                            gstError = "Enter a valid GST percentage."
+                        } else if (d < 0) {
+                            gstError = "GST percentage cannot be negative."
+                        }
+                    }
+                },
+                label = { Text("GST Percentage (Optional)") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                isError = gstError != null,
+                supportingText = { if (gstError != null) Text(gstError!!) }
+            )
+
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -182,11 +209,12 @@ fun ProductEntryScreen(
                         pricePerUnit = pricePerUnitStr.toDoubleOrNull() ?: 0.0,
                         availableStock = availableStockStr.toDoubleOrNull() ?: 0.0,
                         batchNumber = batchNumber,
-                        isWholesaleOnly = isWholesaleOnly
+                        isWholesaleOnly = isWholesaleOnly,
+                        gstPercentage = gstPercentageStr.takeIf { it.isNotBlank() }?.toDoubleOrNull() ?: 0.0
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = saveState !is SaveProductState.Loading
+                enabled = saveState !is SaveProductState.Loading && gstError == null
             ) {
                 if (saveState is SaveProductState.Loading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp))

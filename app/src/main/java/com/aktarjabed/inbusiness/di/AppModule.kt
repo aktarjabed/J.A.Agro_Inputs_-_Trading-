@@ -47,14 +47,6 @@ object AppModule {
     }
 
     @Provides
-    @Singleton
-    fun provideBusinessContext(
-        @ApplicationContext context: Context
-    ): BusinessContext {
-        return BusinessContext(context)
-    }
-
-    @Provides
     @IoDispatcher
     fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
 

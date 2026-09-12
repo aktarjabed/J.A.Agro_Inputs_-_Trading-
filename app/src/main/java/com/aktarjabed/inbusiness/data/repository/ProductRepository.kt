@@ -54,7 +54,8 @@ class ProductRepository @Inject constructor(
         pricePerUnit: Double,
         availableStock: Double,
         batchNumber: String?,
-        isWholesaleOnly: Boolean
+        isWholesaleOnly: Boolean,
+        gstPercentage: Double
     ): Long {
         val businessId = businessContext.activeBusinessId.first()
         require(name.isNotBlank()) { "Name cannot be blank" }
@@ -81,7 +82,8 @@ class ProductRepository @Inject constructor(
                 pricePerUnit = pricePerUnit,
                 availableStock = availableStock,
                 batchNumber = trimmedBatchNumber,
-                isWholesaleOnly = isWholesaleOnly
+                isWholesaleOnly = isWholesaleOnly,
+                gstPercentage = gstPercentage
             )
             productDao.insertProduct(product)
         } else {
@@ -95,7 +97,8 @@ class ProductRepository @Inject constructor(
                 pricePerUnit = pricePerUnit,
                 availableStock = availableStock,
                 batchNumber = trimmedBatchNumber,
-                isWholesaleOnly = isWholesaleOnly
+                isWholesaleOnly = isWholesaleOnly,
+                gstPercentage = gstPercentage
             )
             if (rowsAffected == 0) {
                 throw IllegalStateException("Failed to update product. It may not exist or belongs to another business.")

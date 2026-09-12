@@ -53,6 +53,7 @@ class InvoiceViewModel @Inject constructor(
 
     // Items state
     private val _invoiceItems = MutableStateFlow<List<InvoiceItemInput>>(emptyList())
+    private var editingItemIndex: Int? = null
     val invoiceItems = _invoiceItems.asStateFlow()
 
     private val _calculationResult = MutableStateFlow<InvoiceCalculationResult?>(null)
@@ -95,6 +96,7 @@ class InvoiceViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Failed to load business data for GSTIN", e)
             }
         }
@@ -123,6 +125,7 @@ class InvoiceViewModel @Inject constructor(
                     is QuotaVerdict.FreeExpired -> _uiState.value = InvoiceUiState.QuotaBlocked(verdict)
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error checking quota", e)
                 _uiState.value = InvoiceUiState.Error("Failed to check quota: ${e.message}")
             }
@@ -145,9 +148,20 @@ class InvoiceViewModel @Inject constructor(
         recalculateItems()
     }
 
+
+    fun setEditingItemIndex(index: Int?) {
+        editingItemIndex = index
+    }
+
     fun addItem(item: InvoiceItemInput) {
         val currentItems = _invoiceItems.value.toMutableList()
-        currentItems.add(item)
+        val index = editingItemIndex
+        if (index != null && index in currentItems.indices) {
+            currentItems[index] = item
+        } else {
+            currentItems.add(item)
+        }
+        editingItemIndex = null
         _invoiceItems.value = currentItems
         recalculateItems()
     }
@@ -169,7 +183,17 @@ class InvoiceViewModel @Inject constructor(
         }
 
         try {
-            val rawItems = _invoiceItems.value.map { input ->
+            val validInputs = _invoiceItems.value.filter { input ->
+                val isBlank = input.description.isBlank() && input.quantity == 0.0 && input.pricePerUnit == 0.0 && input.gstPercentage == 0.0
+                if (isBlank) return@filter false
+
+                if (input.description.isBlank() || input.quantity <= 0 || input.pricePerUnit < 0 || input.gstPercentage < 0) {
+                    throw IllegalArgumentException("Partially filled or invalid item found: ${input.description}")
+                }
+                true
+            }
+
+            val rawItems = validInputs.map { input ->
                 InvoiceItem(
                     description = input.description,
                     quantity = input.quantity,
@@ -192,6 +216,7 @@ class InvoiceViewModel @Inject constructor(
                 grandTotal.value = 0.0
             }
         } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
             _calculationResult.value = null
             grandTotal.value = 0.0
         }
@@ -199,7 +224,15 @@ class InvoiceViewModel @Inject constructor(
 
     fun createInvoice() {
         viewModelScope.launch {
-            if (_invoiceItems.value.isEmpty()) {
+            val validInputs = _invoiceItems.value.filter { input ->
+                val isBlank = input.description.isBlank() && input.quantity == 0.0 && input.pricePerUnit == 0.0 && input.gstPercentage == 0.0
+                if (!isBlank && (input.description.isBlank() || input.quantity <= 0 || input.pricePerUnit < 0 || input.gstPercentage < 0)) {
+                    _uiState.value = InvoiceUiState.Error("Partially filled or invalid item found")
+                    return@launch
+                }
+                !isBlank
+            }
+            if (validInputs.isEmpty()) {
                 _uiState.value = InvoiceUiState.Error("Please add at least one item")
                 return@launch
             }
@@ -214,7 +247,7 @@ class InvoiceViewModel @Inject constructor(
             try {
                 val idempotencyKey = currentIdempotencyKey ?: java.util.UUID.randomUUID().toString().also { currentIdempotencyKey = it }
 
-                val rawItems = _invoiceItems.value.map { input ->
+                val rawItems = validInputs.map { input ->
                     InvoiceItem(
                         description = input.description,
                         quantity = input.quantity,
@@ -266,6 +299,7 @@ class InvoiceViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Error creating invoice", e)
                 _uiState.value = InvoiceUiState.Error("Failed to create invoice: ${e.message}")
             }

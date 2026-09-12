@@ -24,31 +24,58 @@ class GetProductSuggestionsUseCase @Inject constructor(
     private val businessContext: BusinessContext
 ) {
     operator fun invoke(): Flow<List<ProductSuggestion>> {
-        return businessContext.activeBusinessId.flatMapLatest { businessId ->
-            combine(
-                productRepository.getAllProducts(),
-                invoiceRepository.getHistoricalInvoiceItems(businessId)
-            ) { products, historicalItems ->
+        return combine(
+            productRepository.getAllProducts(),
+            invoiceRepository.getHistoricalInvoiceItems()
+        ) { products, historicalItems ->
                 val suggestions = mutableListOf<ProductSuggestion>()
 
-                // Add current catalog products first (they take precedence)
-                val catalogDescriptions = mutableSetOf<String>()
+                // Track descriptions added from history to prevent duplicates
+                val historyMap = mutableMapOf<String, InvoiceItem>()
+                for (item in historicalItems) {
+                    val key = item.description.trim().lowercase()
+                    if (!historyMap.containsKey(key)) {
+                        historyMap[key] = item
+                        // We will add them to suggestions later to maintain sort or precedence
+                    }
+                }
+
+                val processedCatalogKeys = mutableSetOf<String>()
+
+                // Add current catalog products, overriding price/gst with historical if available
                 for (product in products) {
-                    suggestions.add(
-                        ProductSuggestion(
-                            description = product.name,
-                            unitType = product.unitType,
-                            pricePerUnit = product.pricePerUnit,
-                            gstPercentage = product.gstPercentage,
-                            product = product
+                    val key = product.name.trim().lowercase()
+                    val historicalMatch = historyMap[key]
+
+                    if (historicalMatch != null) {
+                        // Historical sale values take precedence
+                        suggestions.add(
+                            ProductSuggestion(
+                                description = product.name,
+                                unitType = historicalMatch.unitType,
+                                pricePerUnit = historicalMatch.pricePerUnit,
+                                gstPercentage = historicalMatch.gstPercentage,
+                                product = product
+                            )
                         )
-                    )
-                    catalogDescriptions.add(product.name.lowercase())
+                    } else {
+                        // No history, use catalog defaults
+                        suggestions.add(
+                            ProductSuggestion(
+                                description = product.name,
+                                unitType = product.unitType,
+                                pricePerUnit = product.pricePerUnit,
+                                gstPercentage = product.gstPercentage,
+                                product = product
+                            )
+                        )
+                    }
+                    processedCatalogKeys.add(key)
                 }
 
                 // Add historical items that don't match any catalog product name
-                for (item in historicalItems) {
-                    if (!catalogDescriptions.contains(item.description.lowercase())) {
+                for ((key, item) in historyMap) {
+                    if (!processedCatalogKeys.contains(key)) {
                         suggestions.add(
                             ProductSuggestion(
                                 description = item.description,
@@ -58,11 +85,10 @@ class GetProductSuggestionsUseCase @Inject constructor(
                                 product = null
                             )
                         )
-                        catalogDescriptions.add(item.description.lowercase()) // Prevent duplicates in history itself
                     }
                 }
+
                 suggestions.sortedBy { it.description }
             }
         }
     }
-}

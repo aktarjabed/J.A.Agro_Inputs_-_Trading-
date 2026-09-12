@@ -23,6 +23,10 @@ class CalculateInvoiceTotalsUseCase @Inject constructor() {
         var totalIgst = BigDecimal.ZERO
 
         val processedItems = items.map { item ->
+
+            require(item.quantity.isFinite()) { "Quantity must be finite" }
+            require(item.pricePerUnit.isFinite()) { "Price per unit must be finite" }
+            require(item.gstPercentage.isFinite()) { "GST percentage must be finite" }
             if (item.description.isBlank()) throw IllegalArgumentException("Item description cannot be empty or blank")
             if (item.quantity <= 0) throw IllegalArgumentException("Quantity must be greater than zero")
             if (item.pricePerUnit < 0) throw IllegalArgumentException("Price per unit cannot be negative")

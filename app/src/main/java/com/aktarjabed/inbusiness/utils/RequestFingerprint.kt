@@ -4,6 +4,7 @@ import com.aktarjabed.inbusiness.data.entities.InvoiceItem
 import com.aktarjabed.inbusiness.domain.invoice.SupplyType
 import java.security.MessageDigest
 import java.util.Locale
+import java.math.BigDecimal
 
 object RequestFingerprint {
     fun generate(
@@ -32,18 +33,18 @@ object RequestFingerprint {
         appendField(payload, customerGSTIN?.trim()?.lowercase(Locale.ROOT) ?: "")
         appendField(payload, buyerAddress.trim().lowercase(Locale.ROOT))
         appendField(payload, supplyType.name)
-        appendField(payload, String.format(Locale.US, "%.2f", subtotal))
-        appendField(payload, String.format(Locale.US, "%.2f", totalAmount))
-        appendField(payload, String.format(Locale.US, "%.2f", taxAmount))
-        appendField(payload, String.format(Locale.US, "%.2f", amountPaid))
+        appendField(payload, BigDecimal.valueOf(subtotal).stripTrailingZeros().toPlainString())
+        appendField(payload, BigDecimal.valueOf(totalAmount).stripTrailingZeros().toPlainString())
+        appendField(payload, BigDecimal.valueOf(taxAmount).stripTrailingZeros().toPlainString())
+        appendField(payload, BigDecimal.valueOf(amountPaid).stripTrailingZeros().toPlainString())
         appendField(payload, paymentMethod)
 
         for (item in items) {
             appendField(payload, item.productId?.toString() ?: "")
             appendField(payload, item.description.trim().lowercase(Locale.ROOT))
-            appendField(payload, String.format(Locale.US, "%.2f", item.quantity))
-            appendField(payload, String.format(Locale.US, "%.2f", item.pricePerUnit))
-            appendField(payload, String.format(Locale.US, "%.2f", item.gstPercentage))
+            appendField(payload, BigDecimal.valueOf(item.quantity).stripTrailingZeros().toPlainString())
+            appendField(payload, BigDecimal.valueOf(item.pricePerUnit).stripTrailingZeros().toPlainString())
+            appendField(payload, BigDecimal.valueOf(item.gstPercentage).stripTrailingZeros().toPlainString())
             appendField(payload, item.unitType.trim().lowercase(Locale.ROOT))
         }
 

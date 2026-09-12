@@ -24,12 +24,19 @@ interface InvoiceDao {
     @Query("SELECT * FROM invoice_items WHERE invoiceId = :invoiceId AND invoiceId IN (SELECT id FROM invoices WHERE businessId = :businessId)")
     suspend fun getInvoiceItems(invoiceId: String, businessId: String): List<InvoiceItem>
 
-    @Query("""
+        @Query("""
         SELECT i.*
         FROM invoice_items i
         INNER JOIN invoices inv ON i.invoiceId = inv.id
         WHERE inv.businessId = :businessId
-        GROUP BY i.description
+          AND i.id = (
+              SELECT i2.id FROM invoice_items i2
+              INNER JOIN invoices inv2 ON i2.invoiceId = inv2.id
+              WHERE inv2.businessId = :businessId
+                AND LOWER(TRIM(i2.description)) = LOWER(TRIM(i.description))
+              ORDER BY inv2.createdAt DESC, i2.id DESC
+              LIMIT 1
+          )
         ORDER BY inv.createdAt DESC
     """)
     fun getHistoricalInvoiceItems(businessId: String): Flow<List<InvoiceItem>>
@@ -37,11 +44,10 @@ interface InvoiceDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertInvoice(invoice: Invoice)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertItem(item: InvoiceItem)
 
-    @Query("UPDATE invoices SET amountPaid = :amountPaid, balanceDue = :balanceDue, paymentMethod = :paymentMethod WHERE id = :invoiceId AND businessId = :businessId")
-    suspend fun updateInvoicePayment(invoiceId: String, businessId: String, amountPaid: Double, balanceDue: Double, paymentMethod: String): Int
+
 
     @Query("DELETE FROM invoice_items WHERE invoiceId = :invoiceId AND invoiceId IN (SELECT id FROM invoices WHERE businessId = :businessId)")
     suspend fun deleteItemsForInvoice(invoiceId: String, businessId: String): Int
@@ -66,15 +72,4 @@ interface InvoiceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateSequence(sequence: InvoiceSequence)
-
-    @Transaction
-    suspend fun createInvoiceTransactionally(
-        invoice: Invoice,
-        items: List<InvoiceItem>,
-        sequence: InvoiceSequence
-    ) {
-        insertInvoice(invoice)
-        items.forEach { insertItem(it) }
-        insertOrUpdateSequence(sequence)
-    }
 }

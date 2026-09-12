@@ -44,14 +44,22 @@ class SetupViewModel @Inject constructor(
                     phoneNumber = ""
                 )
 
-                businessRepository.saveBusinessData(businessData)
 
-                // Initialize context
-                businessContext.setUserId(userId)
-                businessContext.setActiveBusinessId(businessId)
 
-                _setupComplete.value = true
+                val result = businessRepository.saveBusinessData(businessData)
+
+                if (result.isSuccess) {
+                    // Initialize context
+                    businessContext.setUserId(userId)
+                    businessContext.setActiveBusinessId(businessId)
+                    _setupComplete.value = true
+                } else {
+                    val exception = result.exceptionOrNull()
+                    if (exception is kotlinx.coroutines.CancellationException) throw exception
+                    _error.value = exception?.message ?: "Failed to set up business"
+                }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 _error.value = e.message ?: "Failed to set up business"
             }
         }

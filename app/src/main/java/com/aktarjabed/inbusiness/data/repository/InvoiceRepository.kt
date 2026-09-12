@@ -18,6 +18,7 @@ import com.aktarjabed.inbusiness.domain.quota.QuotaVerdict
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.util.UUID
@@ -54,14 +55,11 @@ class InvoiceRepository @Inject constructor(
         return invoiceDao.getInvoiceItems(invoiceId, businessId)
     }
 
-    fun getHistoricalInvoiceItems(businessId: String): Flow<List<InvoiceItem>> {
-        return invoiceDao.getHistoricalInvoiceItems(businessId)
+    fun getHistoricalInvoiceItems(): Flow<List<InvoiceItem>> {
+        return businessContext.activeBusinessId.flatMapLatest { businessId -> invoiceDao.getHistoricalInvoiceItems(businessId) }
     }
 
-    suspend fun updateInvoicePayment(invoiceId: String, amountPaid: Double, balanceDue: Double, paymentMethod: String): Boolean {
-        val businessId = businessContext.activeBusinessId.first()
-        return invoiceDao.updateInvoicePayment(invoiceId, businessId, amountPaid, balanceDue, paymentMethod) > 0
-    }
+
 
     suspend fun deleteInvoice(invoiceId: String): Boolean {
         val businessId = businessContext.activeBusinessId.first()
@@ -98,7 +96,8 @@ class InvoiceRepository @Inject constructor(
                 val calcResult = try {
                     calculateInvoiceTotalsUseCase(items, supplyType, amountPaid)
                 } catch (e: Exception) {
-                    return@withTransaction InvoiceCreationResult.InvalidRequest(e.message ?: "Invalid calculation")
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                return@withTransaction InvoiceCreationResult.InvalidRequest(e.message ?: "Invalid calculation")
                 }
 
                 val requestFingerprint = com.aktarjabed.inbusiness.utils.RequestFingerprint.generate(
@@ -228,7 +227,10 @@ class InvoiceRepository @Inject constructor(
                      if (businessData != null) {
                          val calcResult = try {
                              calculateInvoiceTotalsUseCase(items, supplyType, amountPaid)
-                         } catch (e: Exception) { null }
+                         } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) { throw e }
+                             null
+                         }
 
                          if (calcResult != null) {
                              val requestFingerprint = com.aktarjabed.inbusiness.utils.RequestFingerprint.generate(
@@ -260,6 +262,7 @@ class InvoiceRepository @Inject constructor(
         } catch (e: kotlinx.coroutines.CancellationException) {
              throw e // Explicitly rethrow CancellationException
         } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e(TAG, "Failed to create invoice", e)
             return@withContext InvoiceCreationResult.UnexpectedFailure(e)
         }
