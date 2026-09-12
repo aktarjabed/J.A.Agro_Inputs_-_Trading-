@@ -82,38 +82,38 @@ class InvoiceRepository @Inject constructor(
         val businessId = businessContext.activeBusinessId.first()
         val userId = businessContext.currentUserId.first()
 
-        val businessData = businessDao.getBusinessDataById(businessId)
-            ?: return@withContext InvoiceCreationResult.InvalidRequest("Business data not found")
-
-        val sellerName = businessData.name
-        val sellerAddress = businessData.address
-        val sellerGSTIN = businessData.gstin
-
-        val calcResult = try {
-            calculateInvoiceTotalsUseCase(items, supplyType, amountPaid)
-        } catch (e: Exception) {
-            return@withContext InvoiceCreationResult.InvalidRequest(e.message ?: "Invalid calculation")
-        }
-
-        val requestFingerprint = com.aktarjabed.inbusiness.utils.RequestFingerprint.generate(
-            businessId = businessId,
-            sellerName = sellerName,
-            sellerAddress = sellerAddress,
-            sellerGSTIN = sellerGSTIN,
-            customerName = customerName,
-            customerGSTIN = customerGSTIN,
-            buyerAddress = buyerAddress,
-            supplyType = supplyType,
-            subtotal = calcResult.subtotal,
-            totalAmount = calcResult.totalAmount,
-            taxAmount = calcResult.taxAmount,
-            items = calcResult.processedItems,
-            amountPaid = calcResult.amountPaid,
-            paymentMethod = paymentMethod
-        )
-
         try {
             database.withTransaction {
+                val businessData = businessDao.getBusinessDataById(businessId)
+                    ?: return@withTransaction InvoiceCreationResult.InvalidRequest("Business data not found")
+
+                val sellerName = businessData.name
+                val sellerAddress = businessData.address
+                val sellerGSTIN = businessData.gstin
+
+                val calcResult = try {
+                    calculateInvoiceTotalsUseCase(items, supplyType, amountPaid)
+                } catch (e: Exception) {
+                    return@withTransaction InvoiceCreationResult.InvalidRequest(e.message ?: "Invalid calculation")
+                }
+
+                val requestFingerprint = com.aktarjabed.inbusiness.utils.RequestFingerprint.generate(
+                    businessId = businessId,
+                    sellerName = sellerName,
+                    sellerAddress = sellerAddress,
+                    sellerGSTIN = sellerGSTIN,
+                    customerName = customerName,
+                    customerGSTIN = customerGSTIN,
+                    buyerAddress = buyerAddress,
+                    supplyType = supplyType,
+                    subtotal = calcResult.subtotal,
+                    totalAmount = calcResult.totalAmount,
+                    taxAmount = calcResult.taxAmount,
+                    items = calcResult.processedItems,
+                    amountPaid = calcResult.amountPaid,
+                    paymentMethod = paymentMethod
+                )
+
                 // 1. Idempotency Check (Fast path)
                 if (idempotencyKey != null) {
                     val existingInvoice = invoiceDao.getInvoiceByIdempotencyKey(idempotencyKey, businessId)
@@ -214,11 +214,41 @@ class InvoiceRepository @Inject constructor(
              if (idempotencyKey != null) {
                  val existing = invoiceDao.getInvoiceByIdempotencyKey(idempotencyKey, businessId)
                  if (existing != null) {
-                     // Verify payload consistency
-                     if (existing.requestFingerprint == requestFingerprint) {
-                         return@withContext InvoiceCreationResult.IdempotentReplay(existing.id, existing.invoiceNumber)
-                     } else {
-                         return@withContext InvoiceCreationResult.InvalidRequest("Idempotency key reused for a different payload")
+                     // In a true fallback we should re-generate fingerprint, but since we just had a constraint conflict,
+                     // returning an unexpected failure or doing our best is fine if fingerprint isn't in scope.
+                     // Wait, we need the request fingerprint to verify. Let's just generate it here again or we could pass it out.
+                     // Actually, we can regenerate it if needed, or assume it's just a general failure if we can't.
+
+                     // Let's re-generate fingerprint here since requestFingerprint is no longer in scope
+                     val businessData = businessDao.getBusinessDataById(businessId)
+                     if (businessData != null) {
+                         val calcResult = try {
+                             calculateInvoiceTotalsUseCase(items, supplyType, amountPaid)
+                         } catch (e: Exception) { null }
+
+                         if (calcResult != null) {
+                             val requestFingerprint = com.aktarjabed.inbusiness.utils.RequestFingerprint.generate(
+                                 businessId = businessId,
+                                 sellerName = businessData.name,
+                                 sellerAddress = businessData.address,
+                                 sellerGSTIN = businessData.gstin,
+                                 customerName = customerName,
+                                 customerGSTIN = customerGSTIN,
+                                 buyerAddress = buyerAddress,
+                                 supplyType = supplyType,
+                                 subtotal = calcResult.subtotal,
+                                 totalAmount = calcResult.totalAmount,
+                                 taxAmount = calcResult.taxAmount,
+                                 items = calcResult.processedItems,
+                                 amountPaid = calcResult.amountPaid,
+                                 paymentMethod = paymentMethod
+                             )
+                             if (existing.requestFingerprint == requestFingerprint) {
+                                 return@withContext InvoiceCreationResult.IdempotentReplay(existing.id, existing.invoiceNumber)
+                             } else {
+                                 return@withContext InvoiceCreationResult.InvalidRequest("Idempotency key reused for a different payload")
+                             }
+                         }
                      }
                  }
              }

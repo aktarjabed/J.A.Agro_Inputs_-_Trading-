@@ -45,23 +45,27 @@ class QuotaGate @Inject constructor(
 
         // Get daily limit (hardcoded for Stage 1)
         val dailyCap = getDailyLimit(entity.tier) + getLaunchBonus(entity.tier)
-
-        // Check quotas
-        if (entity.tier == "FREE" && entity.monthlyUsed >= 60) {
-            Log.d(TAG, "Monthly cap hit: ${entity.monthlyUsed}/60")
-            return@withContext QuotaVerdict.MonthlyCap
-        }
+        val monthlyCap = getMonthlyLimit(entity.tier)
 
         if (consume) {
-            val rows = dao.incrementUsage(userId, dailyCap)
+            val rows = dao.incrementUsage(userId, dailyCap, monthlyCap)
             if (rows > 0) {
                 QuotaVerdict.Allowed(dailyCap - entity.dailyUsed - 1)
             } else {
-                Log.d(TAG, "Daily cap hit (concurrent/SQL): ${entity.dailyUsed}/$dailyCap")
-                QuotaVerdict.DailyCap(dailyCap)
+                // If 0 rows updated, figure out which cap was hit
+                if (entity.monthlyUsed >= monthlyCap) {
+                    Log.d(TAG, "Monthly cap hit (concurrent/SQL): ${entity.monthlyUsed}/$monthlyCap")
+                    QuotaVerdict.MonthlyCap
+                } else {
+                    Log.d(TAG, "Daily cap hit (concurrent/SQL): ${entity.dailyUsed}/$dailyCap")
+                    QuotaVerdict.DailyCap(dailyCap)
+                }
             }
         } else {
-            if (entity.dailyUsed >= dailyCap) {
+            if (entity.monthlyUsed >= monthlyCap) {
+                Log.d(TAG, "Monthly cap hit (peek): ${entity.monthlyUsed}/$monthlyCap")
+                QuotaVerdict.MonthlyCap
+            } else if (entity.dailyUsed >= dailyCap) {
                 Log.d(TAG, "Daily cap hit (peek): ${entity.dailyUsed}/$dailyCap")
                 QuotaVerdict.DailyCap(dailyCap)
             } else {
@@ -97,6 +101,14 @@ class QuotaGate @Inject constructor(
             "FREE" -> 2
             "BASIC", "PRO", "ENTERPRISE" -> Int.MAX_VALUE
             else -> 2
+        }
+    }
+
+    private fun getMonthlyLimit(tier: String): Int {
+        return when (tier) {
+            "FREE" -> 60
+            "BASIC", "PRO", "ENTERPRISE" -> Int.MAX_VALUE
+            else -> 60
         }
     }
 

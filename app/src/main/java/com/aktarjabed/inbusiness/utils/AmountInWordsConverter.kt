@@ -15,7 +15,9 @@ object AmountInWordsConverter {
     )
 
     fun convertAmountToWords(amount: Double): String {
-        if (amount < 0) return "Invalid Amount"
+        require(amount.isFinite()) { "Amount must be finite" }
+        require(amount >= 0.0) { "Amount cannot be negative" }
+
         val totalPaise = (amount * 100).roundToLong()
         val rupees = totalPaise / 100
         val paise = totalPaise % 100

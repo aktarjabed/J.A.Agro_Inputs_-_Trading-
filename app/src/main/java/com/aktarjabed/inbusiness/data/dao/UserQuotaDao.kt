@@ -21,9 +21,9 @@ interface UserQuotaDao {
         SET dailyUsed = dailyUsed + 1,
             monthlyUsed = monthlyUsed + 1,
             updatedAt = :timestamp
-        WHERE userId = :userId AND dailyUsed < :dailyCap
+        WHERE userId = :userId AND dailyUsed < :dailyCap AND monthlyUsed < :monthlyCap
     """)
-    suspend fun incrementUsage(userId: String, dailyCap: Int, timestamp: Long = System.currentTimeMillis()): Int
+    suspend fun incrementUsage(userId: String, dailyCap: Int, monthlyCap: Int, timestamp: Long = System.currentTimeMillis()): Int
 
     @Query("""
         UPDATE user_quota
