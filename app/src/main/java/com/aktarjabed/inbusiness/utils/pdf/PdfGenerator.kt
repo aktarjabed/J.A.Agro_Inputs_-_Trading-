@@ -6,7 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
-import androidx.core.content.FileProvider
+
 import com.aktarjabed.inbusiness.data.entities.BusinessData
 import com.aktarjabed.inbusiness.data.entities.Invoice
 import com.aktarjabed.inbusiness.data.entities.InvoiceItem
@@ -117,7 +117,7 @@ class PdfGenerator(private val context: Context) {
         yPosition = drawTerms(canvas, yPosition)
 
         // Footer
-        drawFooter(canvas, invoice)
+        drawFooter(canvas)
 
         pdfDocument.finishPage(page)
 
@@ -330,12 +330,33 @@ class PdfGenerator(private val context: Context) {
     }
 
     private fun drawAmountInWords(canvas: Canvas, amount: Double, startY: Float): Float {
-        // As it is critical functionality keeping the actual logic present, although modifying visual layout if needed
         var y = startY
         val amountInWords = com.aktarjabed.inbusiness.utils.AmountInWordsConverter.convertAmountToWords(amount)
         val text = "Amount in Words: $amountInWords"
-        canvas.drawText(text, MARGIN, y, boldPaint)
-        return y + 30f
+
+        val maxWidth = PAGE_WIDTH - 2 * MARGIN
+        val words = text.split(" ")
+        var currentLine = ""
+        val lines = mutableListOf<String>()
+
+        for (word in words) {
+            val testLine = if (currentLine.isEmpty()) word else "$currentLine $word"
+            if (boldPaint.measureText(testLine) < maxWidth) {
+                currentLine = testLine
+            } else {
+                lines.add(currentLine)
+                currentLine = word
+            }
+        }
+        if (currentLine.isNotEmpty()) {
+            lines.add(currentLine)
+        }
+
+        for (line in lines) {
+            canvas.drawText(line, MARGIN, y, boldPaint)
+            y += 20f
+        }
+        return y + 10f
     }
 
     private fun drawPaymentDetails(canvas: Canvas, invoice: Invoice, startY: Float): Float {
@@ -377,7 +398,7 @@ class PdfGenerator(private val context: Context) {
         return y + 20f
     }
 
-    private fun drawFooter(canvas: Canvas, invoice: Invoice) {
+    private fun drawFooter(canvas: Canvas) {
         val y = PAGE_HEIGHT - 80f
 
         val signatureLine = "__________________________________"

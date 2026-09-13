@@ -1,27 +1,7 @@
-package com.aktarjabed.inbusiness.data.database
+with open('app/src/androidTest/java/com/aktarjabed/inbusiness/data/database/MigrationTest.kt', 'r') as f:
+    content = f.read()
 
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
-import org.junit.Rule
-import org.junit.Test
-import org.junit.runner.RunWith
-
-@RunWith(AndroidJUnit4::class)
-class MigrationTest {
-
-    private val TEST_DB = "migration-test"
-
-    @get:Rule
-    val helper: MigrationTestHelper = MigrationTestHelper(
-        InstrumentationRegistry.getInstrumentation(),
-        AppDatabase::class.java,
-        emptyList(),
-        FrameworkSQLiteOpenHelperFactory()
-    )
-
-
+new_test = """
     @Test
     fun migrate11To12() {
         val db = helper.createDatabase(TEST_DB, 11)
@@ -48,5 +28,10 @@ class MigrationTest {
         val migratedDb = helper.runMigrationsAndValidate(TEST_DB, 13, true, AppDatabase.Companion.MIGRATION_11_12, AppDatabase.Companion.MIGRATION_12_13)
         migratedDb.close()
     }
+"""
 
-}
+import re
+content = re.sub(r'    @Test\n    fun migrate11To12\(\) \{.*?\n    \}', new_test, content, flags=re.DOTALL)
+
+with open('app/src/androidTest/java/com/aktarjabed/inbusiness/data/database/MigrationTest.kt', 'w') as f:
+    f.write(content)

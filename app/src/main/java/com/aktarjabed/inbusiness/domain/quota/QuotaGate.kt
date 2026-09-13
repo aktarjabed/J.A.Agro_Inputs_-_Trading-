@@ -21,62 +21,46 @@ class QuotaGate @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
 
-    suspend fun assertQuota(userId: String, consume: Boolean = true): QuotaVerdict = withContext(Dispatchers.IO) {
+    suspend fun assertQuota(userId: String, consume: Boolean = true): QuotaVerdict {
         val today = clock.todayEpochDay()
-        var entity = dao.getQuota(userId) ?: createFirstQuota(userId, today)
-
-        // Roll daily
-        var needsUpdate = false
-        if (entity.lastResetEpochDay != today) {
-            dao.resetDaily(userId, today)
-            needsUpdate = true
-        }
-
-        // Roll monthly
         val monthStart = clock.monthStartEpochDay()
-        if (entity.lastMonthlyResetEpochDay != monthStart) {
-            dao.resetMonthly(userId, monthStart)
-            needsUpdate = true
-        }
-
-        if (needsUpdate) {
-            entity = dao.getQuota(userId) ?: entity
-        }
+        val entity = dao.getQuota(userId) ?: createFirstQuota(userId, today)
 
         // Check expiry
         val freeExpiry = entity.freeExpiryEpochDay
         if (freeExpiry != null && today > freeExpiry) {
-            return@withContext QuotaVerdict.FreeExpired
+            return QuotaVerdict.FreeExpired
         }
 
-        // Get daily limit (hardcoded for Stage 1)
         val dailyCap = getDailyLimit(entity.tier) + getLaunchBonus(entity.tier)
         val monthlyCap = getMonthlyLimit(entity.tier)
 
         if (consume) {
-            val rows = dao.incrementUsage(userId, dailyCap, monthlyCap)
+            val rows = dao.consumeQuotaAtomic(userId, today, monthStart, dailyCap, monthlyCap)
             if (rows > 0) {
                 val freshEntity = dao.getQuota(userId)!!
-                QuotaVerdict.Allowed(dailyCap - freshEntity.dailyUsed)
+                return QuotaVerdict.Allowed(dailyCap - freshEntity.dailyUsed)
             } else {
-                val status = dao.getQuotaStatus(userId, dailyCap, monthlyCap)
+                val status = dao.getQuotaStatus(userId, today, monthStart, dailyCap, monthlyCap)
                 if (status == "MONTHLY_EXCEEDED" || status == "BOTH_EXCEEDED") {
                     Log.d(TAG, "Monthly cap hit (concurrent/SQL): monthly cap $monthlyCap")
-                    QuotaVerdict.MonthlyCap
+                    return QuotaVerdict.MonthlyCap
                 } else {
                     Log.d(TAG, "Daily cap hit (concurrent/SQL): daily cap $dailyCap")
-                    QuotaVerdict.DailyCap(dailyCap)
+                    return QuotaVerdict.DailyCap(dailyCap)
                 }
             }
         } else {
-            val status = dao.getQuotaStatus(userId, dailyCap, monthlyCap)
+            // Non-consuming peek: just sync periods if needed so we don't return stale views
+            dao.syncQuotaPeriods(userId, today, monthStart)
+            val status = dao.getQuotaStatus(userId, today, monthStart, dailyCap, monthlyCap)
             if (status == "MONTHLY_EXCEEDED" || status == "BOTH_EXCEEDED") {
-                QuotaVerdict.MonthlyCap
+                return QuotaVerdict.MonthlyCap
             } else if (status == "DAILY_EXCEEDED") {
-                QuotaVerdict.DailyCap(dailyCap)
+                return QuotaVerdict.DailyCap(dailyCap)
             } else {
                 val peekEntity = dao.getQuota(userId) ?: entity
-                QuotaVerdict.Allowed(dailyCap - peekEntity.dailyUsed)
+                return QuotaVerdict.Allowed(dailyCap - peekEntity.dailyUsed)
             }
         }
     }
@@ -99,7 +83,8 @@ class QuotaGate @Inject constructor(
 
         dao.insertIfAbsent(entity)
         Log.i(TAG, "Created quota for $userId: tier=${deviceTier.name}")
-        return entity
+        // Strictly read the persisted state even if it collided and was IGNORED
+        return dao.getQuota(userId) ?: entity
     }
 
     // Hardcoded for Stage 1 (will be Remote Config in Stage 4)
