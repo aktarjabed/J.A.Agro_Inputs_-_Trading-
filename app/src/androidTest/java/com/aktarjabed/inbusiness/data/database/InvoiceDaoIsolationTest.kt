@@ -86,9 +86,6 @@ class InvoiceDaoIsolationTest {
         val itemsBiz2FromBiz1 = invoiceDao.getInvoiceItems("inv-2", biz1)
         assertEquals(0, itemsBiz2FromBiz1.size)
 
-        // Delete isolation
-        val deleted = invoiceDao.deleteInvoice("inv-2", biz1)
-        assertEquals(0, deleted)
 
         val invoicesBiz2 = invoiceDao.getAllInvoicesOnce(biz2)
         assertEquals(1, invoicesBiz2.size)

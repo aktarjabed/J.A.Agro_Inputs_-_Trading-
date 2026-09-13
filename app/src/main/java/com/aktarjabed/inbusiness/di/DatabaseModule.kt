@@ -20,12 +20,6 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideKeyProvider(
-        @ApplicationContext context: Context
-    ): KeyProvider = KeyProvider(context)
-
-    @Provides
-    @Singleton
     fun provideAppDatabase(
         @ApplicationContext context: Context,
         keyProvider: KeyProvider

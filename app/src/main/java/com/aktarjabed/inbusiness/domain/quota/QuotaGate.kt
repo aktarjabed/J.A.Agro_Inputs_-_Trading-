@@ -97,7 +97,7 @@ class QuotaGate @Inject constructor(
             deviceTier = deviceTier.name
         )
 
-        dao.insertOrReplace(entity)
+        dao.insertIfAbsent(entity)
         Log.i(TAG, "Created quota for $userId: tier=${deviceTier.name}")
         return entity
     }
