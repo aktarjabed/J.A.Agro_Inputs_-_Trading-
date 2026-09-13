@@ -2,3 +2,5 @@ app/build/
 .gradle/
 .gradle/
 app/build/
+.ideavo/project
+*.log
