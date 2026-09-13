@@ -236,7 +236,7 @@ class InvoiceConcurrencyTest {
             calculateInvoiceTotalsUseCase = calcUseCase, quotaGate = realQuotaGate, businessContext = mockBusinessContext
         )
 
-        db.userQuotaDao().insertOrReplace(
+        db.userQuotaDao().insertIfAbsent(
             UserQuotaEntity(
                 userId = USER_ID, tier = "FREE", dailyUsed = 0, monthlyUsed = 0,
                 lastResetEpochDay = com.aktarjabed.inbusiness.util.SystemClock().todayEpochDay(),
@@ -283,7 +283,7 @@ class InvoiceConcurrencyTest {
         )
 
         // Force daily limit very high, but monthly at 59 (cap is 60)
-        db.userQuotaDao().insertOrReplace(
+        db.userQuotaDao().insertIfAbsent(
             UserQuotaEntity(
                 userId = USER_ID, tier = "FREE", dailyUsed = 0, monthlyUsed = 59, // 1 remaining
                 lastResetEpochDay = com.aktarjabed.inbusiness.util.SystemClock().todayEpochDay(),
@@ -323,7 +323,7 @@ class InvoiceConcurrencyTest {
             calculateInvoiceTotalsUseCase = calcUseCase, quotaGate = realQuotaGate, businessContext = mockBusinessContext
         )
 
-        db.userQuotaDao().insertOrReplace(
+        db.userQuotaDao().insertIfAbsent(
             UserQuotaEntity(
                 userId = USER_ID, tier = "PRO", dailyUsed = 10, monthlyUsed = 20,
                 lastResetEpochDay = com.aktarjabed.inbusiness.util.SystemClock().todayEpochDay(),

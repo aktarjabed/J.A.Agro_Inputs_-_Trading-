@@ -11,7 +11,7 @@ import javax.inject.Singleton
 
 @Singleton
 class KeyProvider @Inject constructor(
-    private val context: Context
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
 ) {
     private val sharedPreferences: SharedPreferences by lazy {
         createEncryptedSharedPreferences()

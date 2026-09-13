@@ -61,10 +61,6 @@ class InvoiceRepository @Inject constructor(
 
 
 
-    suspend fun deleteInvoice(invoiceId: String): Boolean {
-        val businessId = businessContext.activeBusinessId.first()
-        return invoiceDao.deleteInvoice(invoiceId, businessId) > 0
-    }
 
     suspend fun createInvoice(
         customerName: String,

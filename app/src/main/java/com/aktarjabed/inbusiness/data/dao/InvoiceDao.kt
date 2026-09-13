@@ -49,11 +49,7 @@ interface InvoiceDao {
 
 
 
-    @Query("DELETE FROM invoice_items WHERE invoiceId = :invoiceId AND invoiceId IN (SELECT id FROM invoices WHERE businessId = :businessId)")
-    suspend fun deleteItemsForInvoice(invoiceId: String, businessId: String): Int
 
-    @Query("DELETE FROM invoices WHERE id = :invoiceId AND businessId = :businessId")
-    suspend fun deleteInvoice(invoiceId: String, businessId: String): Int
 
     @Query("SELECT * FROM invoices WHERE businessId = :businessId AND (invoiceNumber LIKE '%' || :query || '%' OR customerName LIKE '%' || :query || '%')")
     fun searchInvoices(businessId: String, query: String): Flow<List<Invoice>>

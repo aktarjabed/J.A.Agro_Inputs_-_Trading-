@@ -13,8 +13,8 @@ interface UserQuotaDao {
     @Query("SELECT * FROM user_quota WHERE userId = :userId LIMIT 1")
     fun getQuotaFlow(userId: String): Flow<UserQuotaEntity?>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrReplace(quota: UserQuotaEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(quota: UserQuotaEntity)
 
     @Query("""
         UPDATE user_quota

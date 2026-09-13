@@ -28,7 +28,7 @@ class QuotaGateTest {
             return flowOf(quotas[userId])
         }
 
-        override suspend fun insertOrReplace(quota: UserQuotaEntity) {
+        override suspend fun insertIfAbsent(quota: UserQuotaEntity) {
             quotas[quota.userId] = quota
         }
 
@@ -97,7 +97,7 @@ class QuotaGateTest {
             freeExpiryEpochDay = today + 365,
             deviceTier = "LOW_END"
         )
-        dao.insertOrReplace(initialQuota)
+        dao.insertIfAbsent(initialQuota)
 
         val mockContext = mock(Context::class.java)
         val quotaGate = QuotaGate(dao, DeviceClassifier(), clock, mockContext)
