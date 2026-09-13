@@ -18,40 +18,55 @@ interface UserQuotaDao {
 
     @Query("""
         UPDATE user_quota
-        SET dailyUsed = dailyUsed + 1,
-            monthlyUsed = monthlyUsed + 1,
-            updatedAt = :timestamp
-        WHERE userId = :userId AND dailyUsed < :dailyCap AND monthlyUsed < :monthlyCap
-    """)
-    suspend fun incrementUsage(userId: String, dailyCap: Int, monthlyCap: Int, timestamp: Long = System.currentTimeMillis()): Int
-
-    @Query("""
-        UPDATE user_quota
-        SET dailyUsed = 0,
+        SET
+            dailyUsed = CASE
+                WHEN lastResetEpochDay < :today THEN 1
+                ELSE dailyUsed + 1
+            END,
             lastResetEpochDay = :today,
-            updatedAt = :timestamp
-        WHERE userId = :userId
-    """)
-    suspend fun resetDaily(userId: String, today: Long, timestamp: Long = System.currentTimeMillis())
-
-    @Query("""
-        UPDATE user_quota
-        SET monthlyUsed = 0,
+            monthlyUsed = CASE
+                WHEN lastMonthlyResetEpochDay < :monthStart THEN 1
+                ELSE monthlyUsed + 1
+            END,
             lastMonthlyResetEpochDay = :monthStart,
             updatedAt = :timestamp
         WHERE userId = :userId
+        AND (
+            (lastResetEpochDay < :today OR dailyUsed < :dailyCap)
+            AND
+            (lastMonthlyResetEpochDay < :monthStart OR monthlyUsed < :monthlyCap)
+        )
     """)
-    suspend fun resetMonthly(userId: String, monthStart: Long, timestamp: Long = System.currentTimeMillis())
+    suspend fun consumeQuotaAtomic(userId: String, today: Long, monthStart: Long, dailyCap: Int, monthlyCap: Int, timestamp: Long = System.currentTimeMillis()): Int
+
+    @Query("""
+        UPDATE user_quota
+        SET
+            dailyUsed = CASE
+                WHEN lastResetEpochDay < :today THEN 0
+                ELSE dailyUsed
+            END,
+            lastResetEpochDay = :today,
+            monthlyUsed = CASE
+                WHEN lastMonthlyResetEpochDay < :monthStart THEN 0
+                ELSE monthlyUsed
+            END,
+            lastMonthlyResetEpochDay = :monthStart,
+            updatedAt = :timestamp
+        WHERE userId = :userId
+        AND (lastResetEpochDay < :today OR lastMonthlyResetEpochDay < :monthStart)
+    """)
+    suspend fun syncQuotaPeriods(userId: String, today: Long, monthStart: Long, timestamp: Long = System.currentTimeMillis())
 
     @Query("""
         SELECT CASE
-            WHEN monthlyUsed >= :monthlyCap AND dailyUsed >= :dailyCap THEN 'BOTH_EXCEEDED'
-            WHEN monthlyUsed >= :monthlyCap THEN 'MONTHLY_EXCEEDED'
-            WHEN dailyUsed >= :dailyCap THEN 'DAILY_EXCEEDED'
+            WHEN (lastMonthlyResetEpochDay >= :monthStart AND monthlyUsed >= :monthlyCap) AND (lastResetEpochDay >= :today AND dailyUsed >= :dailyCap) THEN 'BOTH_EXCEEDED'
+            WHEN (lastMonthlyResetEpochDay >= :monthStart AND monthlyUsed >= :monthlyCap) THEN 'MONTHLY_EXCEEDED'
+            WHEN (lastResetEpochDay >= :today AND dailyUsed >= :dailyCap) THEN 'DAILY_EXCEEDED'
             ELSE 'AVAILABLE'
         END
         FROM user_quota
         WHERE userId = :userId
     """)
-    suspend fun getQuotaStatus(userId: String, dailyCap: Int, monthlyCap: Int): String?
+    suspend fun getQuotaStatus(userId: String, today: Long, monthStart: Long, dailyCap: Int, monthlyCap: Int): String?
 }

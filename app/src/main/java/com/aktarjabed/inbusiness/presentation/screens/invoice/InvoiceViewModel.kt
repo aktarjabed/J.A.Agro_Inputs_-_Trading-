@@ -66,7 +66,7 @@ class InvoiceViewModel @Inject constructor(
     val amountPaid = MutableStateFlow(0.0)
     val paymentMethod = MutableStateFlow("NONE")
 
-    val grandTotal = MutableStateFlow(0.0)
+
 
     private var currentIdempotencyKey: String? = null
 
@@ -141,6 +141,18 @@ class InvoiceViewModel @Inject constructor(
         if (sellerGstin.value.isNotBlank() && gstin.isNotBlank()) {
             supplyType.value = determineSupplyTypeUseCase(sellerGstin.value, gstin)
         }
+        recalculateItems()
+    }
+
+
+    fun setAmountPaid(amount: Double) {
+        val normalized = if (amount.isFinite()) java.math.BigDecimal(amount.toString()).setScale(2, java.math.RoundingMode.HALF_UP).toDouble() else 0.0
+        amountPaid.value = normalized
+        recalculateItems()
+    }
+
+    fun setPaymentMethod(method: String) {
+        paymentMethod.value = method
     }
 
     fun setSupplyType(type: SupplyType) {
@@ -171,6 +183,7 @@ class InvoiceViewModel @Inject constructor(
         if (index in currentItems.indices) {
             currentItems.removeAt(index)
             _invoiceItems.value = currentItems
+            recalculateItems()
         }
     }
 
@@ -178,7 +191,7 @@ class InvoiceViewModel @Inject constructor(
         val currentSupplyType = supplyType.value
         if (currentSupplyType == SupplyType.UNKNOWN) {
             _calculationResult.value = null
-            grandTotal.value = 0.0
+
             return
         }
 
@@ -210,15 +223,15 @@ class InvoiceViewModel @Inject constructor(
                     amountPaid = amountPaid.value
                 )
                 _calculationResult.value = calcResult
-                grandTotal.value = calcResult.totalAmount
+
             } else {
                 _calculationResult.value = null
-                grandTotal.value = 0.0
+
             }
         } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
             _calculationResult.value = null
-            grandTotal.value = 0.0
+
         }
     }
 

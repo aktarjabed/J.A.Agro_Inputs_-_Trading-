@@ -37,7 +37,6 @@ fun InvoiceScreen(
     val items by viewModel.invoiceItems.collectAsState()
     val calculationResult by viewModel.calculationResult.collectAsState()
     val productSuggestions by viewModel.productSuggestions.collectAsState()
-    val grandTotal by viewModel.grandTotal.collectAsState()
 
     var showAddItemDialog by remember { mutableStateOf(false) }
     var editingItemInput by remember { mutableStateOf<InvoiceItemInput?>(null) }
@@ -201,9 +200,9 @@ fun InvoiceScreen(
                                             amountStr = it
                                             val d = it.toDoubleOrNull()
                                             if (d != null) {
-                                                viewModel.amountPaid.value = d
+                                                viewModel.setAmountPaid(d)
                                             } else if (it.isBlank()) {
-                                                viewModel.amountPaid.value = 0.0
+                                                viewModel.setAmountPaid(0.0)
                                             }
                                         },
                                         label = { Text("Amount Paid (₹)") },
@@ -252,7 +251,7 @@ fun InvoiceScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val formattedTotal = String.format(java.util.Locale.US, "%.2f", grandTotal)
+                            val formattedTotal = String.format(java.util.Locale.US, "%.2f", calculationResult?.totalAmount ?: 0.0)
                             Text("Grand Total: ₹$formattedTotal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                             Button(
